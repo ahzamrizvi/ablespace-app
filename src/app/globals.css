@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f7fb;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --border: rgba(15, 23, 42, 0.1);
+  --border-soft: rgba(15, 23, 42, 0.06);
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --primary: #4f46e5;
+  --primary-soft: rgba(79, 70, 229, 0.12);
+  --ring: #4f46e5;
+  --ring-soft: rgba(79, 70, 229, 0.25);
+}
+
+html[data-accent="amber"] {
+  --primary: #f59e0b;
+  --primary-soft: rgba(245, 158, 11, 0.14);
+  --ring: #f59e0b;
+  --ring-soft: rgba(245, 158, 11, 0.22);
+}
+
+html[data-accent="blue"] {
+  --primary: #4f46e5;
+  --primary-soft: rgba(79, 70, 229, 0.12);
+  --ring: #4f46e5;
+  --ring-soft: rgba(79, 70, 229, 0.25);
+}
+
+html[data-accent="pink"] {
+  --primary: #db2777;
+  --primary-soft: rgba(219, 39, 119, 0.14);
+  --ring: #db2777;
+  --ring-soft: rgba(219, 39, 119, 0.25);
+}
+
+html[data-accent="rose"] {
+  --primary: #e11d48;
+  --primary-soft: rgba(225, 29, 72, 0.14);
+  --ring: #e11d48;
+  --ring-soft: rgba(225, 29, 72, 0.24);
+}
+
+html[data-accent="emerald"] {
+  --primary: #059669;
+  --primary-soft: rgba(5, 150, 105, 0.14);
+  --ring: #059669;
+  --ring-soft: rgba(5, 150, 105, 0.24);
+}
+
+html[data-accent="black"] {
+  --primary: #111827;
+  --primary-soft: rgba(17, 24, 39, 0.14);
+  --ring: #111827;
+  --ring-soft: rgba(17, 24, 39, 0.22);
+}
+
+html.dark {
+  --background: #0b1120;
+  --surface: #111827;
+  --surface-2: #0f172a;
+  --border: rgba(148, 163, 184, 0.16);
+  --border-soft: rgba(148, 163, 184, 0.1);
+  --text: #e5e7eb;
+  --text-muted: #94a3b8;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--text);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  min-height: 100%;
+}
+
+::selection {
+  background: rgba(79, 70, 229, 0.2);
+}
