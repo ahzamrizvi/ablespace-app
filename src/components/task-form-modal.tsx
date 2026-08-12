@@ -18,13 +18,20 @@ type Props = {
     dueDate?: string;
   }) => Promise<void>;
   initialTask?: Task | null;
+  initialStatus?: TaskStatus;
   title: string;
 };
 
-const statusOptions: TaskStatus[] = ["TODO", "IN_PROGRESS", "DONE"];
+const statusOptions: TaskStatus[] = ["TODO", "IN_PROGRESS", "DONE", "ON_HOLD"];
 const priorityOptions: TaskPriority[] = ["LOW", "MEDIUM", "HIGH"];
+const statusLabels: Record<TaskStatus, string> = {
+  TODO: "To Do",
+  IN_PROGRESS: "Doing",
+  DONE: "Completed",
+  ON_HOLD: "On Hold",
+};
 
-export function TaskFormModal({ open, onClose, onSubmit, initialTask, title }: Props) {
+export function TaskFormModal({ open, onClose, onSubmit, initialTask, initialStatus = "TODO", title }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const dialogTitleId = "task-dialog-title";
   const [form, setForm] = useState({
@@ -40,11 +47,11 @@ export function TaskFormModal({ open, onClose, onSubmit, initialTask, title }: P
     setForm({
       title: initialTask?.title ?? "",
       description: initialTask?.description ?? "",
-      status: initialTask?.status ?? "TODO",
+        status: initialTask?.status ?? initialStatus,
       priority: initialTask?.priority ?? "MEDIUM",
       dueDate: initialTask?.dueDate ? initialTask.dueDate.slice(0, 10) : "",
     });
-  }, [initialTask, open]);
+  }, [initialStatus, initialTask, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -124,7 +131,7 @@ export function TaskFormModal({ open, onClose, onSubmit, initialTask, title }: P
               >
                 {statusOptions.map((option) => (
                   <option key={option} value={option}>
-                    {option.replaceAll("_", " ")}
+                    {statusLabels[option]}
                   </option>
                 ))}
               </select>

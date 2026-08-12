@@ -30,12 +30,14 @@ const statusLabels: Record<TaskStatus, string> = {
   TODO: "To do",
   IN_PROGRESS: "In progress",
   DONE: "Done",
+  ON_HOLD: "On hold",
 };
 
 const statusTone: Record<TaskStatus, string> = {
   TODO: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
   IN_PROGRESS: "bg-sky-500/10 text-sky-700 dark:text-sky-300",
   DONE: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  ON_HOLD: "bg-zinc-500/10 text-zinc-700 dark:text-zinc-300",
 };
 
 const priorityTone: Record<TaskPriority, string> = {
