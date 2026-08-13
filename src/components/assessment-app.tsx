@@ -6,6 +6,7 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Circle,
   CircleCheck,
   CircleDashed,
@@ -34,8 +35,9 @@ import {
   SunMedium,
   Tag,
   UserCircle2,
+  UserPlus,
 } from "lucide-react";
-import { createTask, deleteTask, guestLogin, getCurrentUser, listTasks, updateTask } from "@/lib/api";
+import { createTask, deleteTask, guestLogin, getCurrentUser, listTasks, logout, updateTask } from "@/lib/api";
 import type { Task, TaskPriority, TaskStatus, User } from "@/lib/types";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -43,6 +45,7 @@ import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { TaskFormModal } from "./task-form-modal";
+import { SubtaskFormModal, type SubtaskFormValue } from "./subtask-form-modal";
 import { useTheme } from "next-themes";
 
 type View = "login" | "tasks" | "task-detail" | "projects" | "profile";
@@ -61,7 +64,6 @@ type ProjectItem = {
   labels: string[];
 };
 
-const tokenKey = "able-space.token";
 const accentKey = "able-space.accent";
 
 const accentOptions: Array<{ value: Accent; label: string }> = [
@@ -153,7 +155,6 @@ export function AssessmentApp() {
   const [ready, setReady] = useState(false);
   const [view, setView] = useState<View>("login");
   const [loadingAuth, setLoadingAuth] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskError, setTaskError] = useState<string | null>(null);
@@ -177,16 +178,10 @@ export function AssessmentApp() {
   const [sidebarVisible, setSidebarVisible] = useState(true);
 
   useEffect(() => {
-    const storedToken = window.localStorage.getItem(tokenKey);
     const storedAccent = window.localStorage.getItem(accentKey) as Accent | null;
 
     if (storedAccent) {
       setAccent(storedAccent);
-    }
-
-    if (storedToken) {
-      setToken(storedToken);
-      setView("tasks");
     }
 
     setReady(true);
@@ -198,11 +193,11 @@ export function AssessmentApp() {
   }, [accent]);
 
   useEffect(() => {
-    if (!ready || !token) return;
+    if (!ready) return;
 
     let active = true;
 
-    getCurrentUser(token)
+    getCurrentUser()
       .then((currentUser) => {
         if (!active) return;
         if (!currentUser) {
@@ -218,7 +213,9 @@ export function AssessmentApp() {
           title: currentUser.isGuest ? "Guest" : current.title,
           username: currentUser.isGuest ? "guest" : current.username,
         }));
-        loadTasks(token);
+        setUser(currentUser);
+        setView("tasks");
+        void loadTasks();
       })
       .catch(() => {
         if (active) clearSession();
@@ -227,16 +224,16 @@ export function AssessmentApp() {
     return () => {
       active = false;
     };
-  }, [ready, token]);
+  }, [ready]);
 
   useEffect(() => {
-    if (!token || view !== "tasks") return;
+    if (view !== "tasks") return;
     const handler = window.setTimeout(() => {
-      void loadTasks(token);
+      void loadTasks();
     }, 120);
 
     return () => window.clearTimeout(handler);
-  }, [token, taskQuery, taskStatus, taskPriority, view]);
+  }, [taskQuery, taskStatus, taskPriority, view]);
 
   const activeTask = useMemo(
     () => tasks.find((task) => task.id === selectedTaskId) ?? tasks[0] ?? null,
@@ -259,9 +256,9 @@ export function AssessmentApp() {
     [projectQuery, projects],
   );
 
-  async function loadTasks(currentToken: string) {
+  async function loadTasks() {
     try {
-      const response = await listTasks(currentToken, {
+      const response = await listTasks({
         q: taskQuery,
         status: taskStatus,
         priority: taskPriority,
@@ -275,8 +272,6 @@ export function AssessmentApp() {
   }
 
   function clearSession() {
-    window.localStorage.removeItem(tokenKey);
-    setToken(null);
     setUser(null);
     setTasks([]);
     setView("login");
@@ -290,8 +285,6 @@ export function AssessmentApp() {
     setLoadingAuth(true);
     try {
       const response = await guestLogin();
-      window.localStorage.setItem(tokenKey, response.token);
-      setToken(response.token);
       setUser(response.user);
       setProfile({
         name: response.user.name,
@@ -300,7 +293,7 @@ export function AssessmentApp() {
         username: "guest",
       });
       setView("tasks");
-      await loadTasks(response.token);
+      await loadTasks();
     } catch (error) {
       setTaskError(error instanceof Error ? error.message : "Guest login failed");
     } finally {
@@ -315,27 +308,32 @@ export function AssessmentApp() {
     priority?: TaskPriority;
     dueDate?: string;
   }) {
-    if (!token) return;
-
     if (editingTask) {
-      await updateTask(token, editingTask.id, payload);
+      await updateTask(editingTask.id, payload);
     } else {
-      await createTask(token, payload);
+      await createTask(payload);
     }
 
     setEditingTask(null);
     setTaskDialogOpen(false);
-    await loadTasks(token);
+    await loadTasks();
   }
 
   async function handleDeleteTask(id: string) {
-    if (!token) return;
-    await deleteTask(token, id);
-    await loadTasks(token);
+    await deleteTask(id);
+    await loadTasks();
   }
 
   async function handleToggleTheme(nextTheme: "light" | "dark") {
     setTheme(nextTheme);
+  }
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } finally {
+      clearSession();
+    }
   }
 
   if (!ready || view === "login") {
@@ -387,7 +385,7 @@ export function AssessmentApp() {
               </div>
               <ChevronDown size={14} className="text-[color:var(--text-muted)]" />
             </button>
-            {openMenu === "user" ? <UserMenu accent={accent} onAccentChange={setAccent} onThemeChange={handleToggleTheme} onNavigateProfile={() => setView("profile")} onLogout={clearSession} onClose={() => setOpenMenu(null)} /> : null}
+            {openMenu === "user" ? <UserMenu accent={accent} onAccentChange={setAccent} onThemeChange={handleToggleTheme} onNavigateProfile={() => setView("profile")} onLogout={handleLogout} onClose={() => setOpenMenu(null)} /> : null}
           </div>
 
           <div className="mt-4 rounded-2xl px-2 py-2">
@@ -456,7 +454,6 @@ export function AssessmentApp() {
             <div className="px-4 py-5">
               {view === "tasks" ? (
                 <TasksScreen
-                  token={token}
                   user={user}
                   tasks={tasks}
                   error={taskError}
@@ -613,7 +610,6 @@ function SubMenuItem({ icon: Icon, label, onClick, swatch, selected }: { icon?: 
 }
 
 function TasksScreen({
-  token,
   user,
   tasks,
   error,
@@ -632,7 +628,6 @@ function TasksScreen({
   onDelete,
   onOpenDetail,
 }: {
-  token: string | null;
   user: User | null;
   tasks: Task[];
   error: string | null;
@@ -874,119 +869,104 @@ function PrioritySignal({ priority }: { priority: TaskPriority }) {
   );
 }
 
-/* function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => void; onEdit: () => void }) {
-  const [comment, setComment] = useState("");
-  const [comments, setComments] = useState<string[]>([]);
-  const [priorityOpen, setPriorityOpen] = useState(false);
-  const [labels, setLabels] = useState(["Research", "Design", "Development", "Testing", "Deployment"]);
-  const [resource, setResource] = useState("");
-  const description = task.title === "Write API Documentation"
-    ? "Create clear and detailed API documentation to guide developers in using the inventory and sales metrics features effectively."
-    : task.description || "Create clear and detailed documentation to guide developers effectively.";
-  const dueDate = task.dueDate ? new Date(`${task.dueDate}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "No due date";
-
-  return (
-    <div className="relative w-full text-[#181818]">
-      <button className="sr-only" onClick={onBack}>Back to tasks</button>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <section>
-          <div className="flex items-start justify-between gap-4 pr-2">
-            <div><h1 className="text-xl font-semibold tracking-tight">{task.title}</h1><p className="mt-1 max-w-xl text-xs leading-4 text-[#777]">{description}</p></div>
-            <div className="absolute right-0 top-0 flex items-center gap-1 pb-4">
-              <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={() => navigator.clipboard.writeText(window.location.href)} aria-label="Lock task"><Lock size={14} strokeWidth={2} /></button>
-              <button className="flex h-7 items-center gap-1 rounded border border-[#e8e8e8] px-2 text-[#5968ff] hover:bg-[#f5f5f5]" onClick={() => navigator.clipboard.writeText(task.title)} aria-label="Watch task"><Eye size={14} strokeWidth={2} /> <span className="text-xs">1</span></button>
-              <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={() => navigator.share?.({ title: task.title })} aria-label="Share task"><Share2 size={14} strokeWidth={2} /></button>
-              <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={onEdit} aria-label="More task options"><MoreHorizontal size={15} strokeWidth={2.5} className="translate-y-[0.5px]" /></button>
-              <button className="flex h-7 w-7 items-center justify-center rounded bg-[#f1f1f1] text-[#777] hover:bg-[#e8e8e8]" onClick={onBack} aria-label="Close task details"><PanelLeft size={14} strokeWidth={2} /></button>
-            </div>
-          </div>
-          <div className="mt-5 grid gap-3 text-xs">
-            <DetailRow label="Properties" value={<span className="inline-flex items-center gap-2"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white">A</span> Admin <Badge className="bg-[#ffeded] text-[#f04444]"><CalendarDays size={10} /> 31 Jul</Badge></span>} />
-            <DetailRow label="Labels" value={<span className="flex flex-wrap gap-1">{labels.map((label) => <Badge key={label} className="cursor-pointer bg-[#f5f5f5] text-[#333]" onClick={() => setLabels((current) => current.filter((item) => item !== label))}><Tag size={11} /> {label}</Badge>)}</span>} />
-            <DetailRow label="Resources" value={resource ? <a href={resource} className="text-blue-600 underline" target="_blank">{resource}</a> : <button className="text-[#777] hover:text-[#181818]" onClick={() => setResource("https://example.com")}>Add document or link...</button>} />
-          </div>
-          <h2 className="mt-6 text-xs font-semibold">Subtasks</h2>
-          <div className="mt-2 max-w-[720px] overflow-hidden rounded-md border border-[#e8e8e8]">
-            <table className="min-w-full text-xs"><thead className="bg-[#f5f5f5]"><tr><th className="px-3 py-2 text-left font-medium">Task</th><th className="px-3 py-2 text-left font-medium">Priority</th><th className="px-3 py-2 text-left font-medium">Members</th><th className="px-3 py-2 text-left font-medium">Due Date</th><th className="px-3 py-2 text-right font-medium">Actions</th></tr></thead><tbody>{["Subtask 1", "Subtask 2", "Subtask 3"].map((item, index) => <tr key={item} className="border-t border-[#e8e8e8]"><td className="px-3 py-2">{item}</td><td className={`px-3 py-2 ${index === 0 ? "text-red-500" : index === 1 ? "text-zinc-400" : "text-orange-500"}`}><PrioritySignal priority={index === 0 ? "HIGH" : index === 1 ? "LOW" : "MEDIUM"} /> {index === 0 ? "High" : index === 1 ? "Low" : "Medium"}</td><td className="px-3 py-2">Admin</td><td className="px-3 py-2">{dueDate}</td><td className="px-3 py-2 text-right"><MoreHorizontal size={14} /></td></tr>)}</tbody></table><button className="w-full border-t border-[#e8e8e8] px-3 py-2 text-left text-xs">+ Add Subtask</button>
-          </div>
-          <h2 className="mt-6 text-xs font-semibold">Subtasks</h2>
-          <div className="mt-2 max-w-[720px] overflow-hidden rounded-md border border-[#e8e8e8] text-xs">
-            <div className="flex items-start justify-between px-3 py-2.5">
-              <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white">A</span>
-                <div className="flex items-center gap-2">
-                  <div className="text-[11px] font-medium">Ankit Dutta</div>
-                  <div className="text-[10px] text-[#777]">just now</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-[#181818]">
-                <button aria-label="Add reaction" className="rounded p-1 hover:bg-[#f5f5f5]"><Smile size={14} strokeWidth={2} /></button>
-                <button aria-label="More comment actions" className="rounded p-1 hover:bg-[#f5f5f5]"><MoreHorizontal size={14} /></button>
-              </div>
-            </div>
-            <div className="px-3 pb-3 text-[15px] leading-5 text-[#181818]">dsds</div>
-            <div className="border-t border-[#e8e8e8] px-3 py-2.5">
-              <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white">A</span>
-                <div className="min-w-0 flex-1 text-[#777]">Leave a reply...</div>
-                <button aria-label="Attach file" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]"><Paperclip size={14} /></button>
-                <button aria-label="Send reply" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]"><Send size={14} /></button>
-              </div>
-            </div>
-          </div>
-          <div className="mt-3 max-w-[720px] rounded-md border border-[#e8e8e8] px-3 py-3 text-xs text-[#777]">
-            <div className="flex items-center gap-2">
-              <div className="min-w-0 flex-1">Add a comment...</div>
-              <button aria-label="Attach file" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]"><Paperclip size={14} /></button>
-              <button aria-label="Send comment" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]"><Send size={14} /></button>
-            </div>
-          </div>
-        </section>
-        <div className="flex w-full flex-col gap-3">
-          <aside className="mt-20 w-full rounded-md border border-[#e8e8e8] p-4 text-xs">
-            <div className="flex items-center justify-between border-b border-[#e8e8e8] pb-2 font-medium">Details <Settings2 size={12} /></div>
-            <div className="grid gap-2.5 pt-3">
-              <DetailRow label="Status" value={taskStatusLabels[task.status]} />
-              <DetailRow label="Priority" value={<div className="relative"><button className="inline-flex items-center gap-1 text-red-500" onClick={() => setPriorityOpen((current) => !current)}><PrioritySignal priority={task.priority} /> {taskPriorityLabel[task.priority]} <ChevronUp size={11} /></button>{priorityOpen ? <div className="absolute left-0 top-6 z-10 w-40 rounded-md border border-[#e8e8e8] bg-white p-2 shadow-lg"><div className="px-2 pb-2 text-[11px] text-[#777]">Priority</div>{(["HIGH", "MEDIUM", "LOW"] as TaskPriority[]).map((priority, index) => <button key={priority} className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className={`inline-flex items-center gap-1 ${priority === "HIGH" ? "text-red-500" : priority === "MEDIUM" ? "text-orange-500" : priority === "LOW" ? "text-zinc-400" : "text-zinc-400"}`}><PrioritySignal priority={priority} /> {priority === "HIGH" ? "Urgent" : taskPriorityLabel[priority]}</span>{index === 0 ? <span className="text-[#181818]">✓</span> : null}</button>)}</div> : null}</div>} />
-              <DetailRow label="Members" value="Admin" />
-              <DetailRow label="Dates" value={dueDate} />
-              <DetailRow label="Labels" value="Deployment" />
-              <DetailRow label="Teams" value="Development" />
-              <DetailRow label="Reporter" value="Admin" />
-            </div>
-          </aside>
-          <div className="w-full rounded-md border border-[#e8e8e8] px-3 py-2.5 text-xs">
-            <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#181818]"><ChevronDown size={12} /> <span>Updates</span></div>
-            <div className="mt-2 flex items-start gap-2">
-              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#fff1f1] text-[9px] text-[#ff5a5a]"><span className="inline-block h-2 w-2 rounded-full bg-[#ff5a5a]" /></span>
-              <div className="min-w-0">
-                <div className="text-[11px] font-medium leading-4">You</div>
-                <div className="truncate text-[11px] leading-4 text-[#777]">changed priority from No priority to Ur...</div>
-              </div>
-            </div>
-            <div className="mt-3 flex items-start gap-2">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white">A</span>
-              <div className="min-w-0">
-                <div className="text-[11px] font-medium leading-4">You</div>
-                <div className="text-[11px] leading-4 text-[#777]">posted an update · Aug 2026</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-*/
-
 function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => void; onEdit: () => void }) {
   const [comment, setComment] = useState("");
   const [comments, setComments] = useState<string[]>([]);
+  const [replyText, setReplyText] = useState("");
+  const [replies, setReplies] = useState<string[]>([]);
   const [priorityOpen, setPriorityOpen] = useState(false);
   const priorityMenuRef = useRef<HTMLDivElement | null>(null);
+  const [subtasksOpen, setSubtasksOpen] = useState(true);
+  const [updatesOpen, setUpdatesOpen] = useState(true);
+  const [detailsOpen, setDetailsOpen] = useState(true);
   const [labels, setLabels] = useState(["Research", "Design", "Development", "Testing", "Deployment"]);
   const [resource, setResource] = useState("");
   const dueDate = task.dueDate ? new Date(`${task.dueDate}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "No due date";
+  const [subtaskMenuOpen, setSubtaskMenuOpen] = useState<string | null>(null);
+  const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
+  const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
+  const [detailsMenuOpen, setDetailsMenuOpen] = useState(false);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [detailDraft, setDetailDraft] = useState("");
+  const [detailEntries, setDetailEntries] = useState(["Status", "Priority", "Members", "Dates", "Labels", "Teams", "Reporter"]);
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [datesOpen, setDatesOpen] = useState(false);
+  const [dateTarget, setDateTarget] = useState<"start" | "end">("start");
+  const [startDate, setStartDate] = useState(() => new Date());
+  const [endDate, setEndDate] = useState(() => new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7));
+  const [dateMonth, setDateMonth] = useState(new Date().getMonth());
+  const [dateYear, setDateYear] = useState(new Date().getFullYear());
+  const [memberList, setMemberList] = useState(["Admin"]);
+  const [subtasks, setSubtasks] = useState([
+    { id: "subtask-1", title: "Subtask 1", priority: "HIGH" as const, member: "A", dueDate },
+    { id: "subtask-2", title: "Subtask 2", priority: "LOW" as const, member: "CN", dueDate },
+    { id: "subtask-3", title: "Subtask 3", priority: "MEDIUM" as const, member: "+", dueDate },
+  ]);
+
+  function openAddSubtask() {
+    setEditingSubtaskId(null);
+    setSubtaskDialogOpen(true);
+  }
+
+  function openEditSubtask(id: string) {
+    setEditingSubtaskId(id);
+    setSubtaskDialogOpen(true);
+  }
+
+  function duplicateSubtask(id: string) {
+    const currentSubtask = subtasks.find((item) => item.id === id);
+    if (!currentSubtask) return;
+
+    setSubtasks((current) => [
+      ...current,
+      {
+        ...currentSubtask,
+        id: `subtask-${crypto.randomUUID()}`,
+        title: `${currentSubtask.title} Copy`,
+      },
+    ]);
+  }
+
+  function deleteSubtask(id: string) {
+    setSubtasks((current) => current.filter((item) => item.id !== id));
+    setSubtaskMenuOpen(null);
+  }
+
+  const [updateMenuOpen, setUpdateMenuOpen] = useState(false);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [updateText, setUpdateText] = useState("dsds");
+  const [updateDraft, setUpdateDraft] = useState("dsds");
+  const [editingUpdate, setEditingUpdate] = useState(false);
+  const [reactionEmoji, setReactionEmoji] = useState("🙂");
+  const [attachmentTarget, setAttachmentTarget] = useState<"resource" | "reply" | "comment" | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
+  const [resourceName, setResourceName] = useState("");
+  const [replyAttachmentName, setReplyAttachmentName] = useState("");
+  const [commentAttachmentName, setCommentAttachmentName] = useState("");
+  const [locked, setLocked] = useState(false);
+  const [watchCount, setWatchCount] = useState(1);
+
+  function handleSubtaskSubmit(value: SubtaskFormValue) {
+    if (editingSubtaskId) {
+      setSubtasks((current) => current.map((item) => (item.id === editingSubtaskId ? { ...item, ...value } : item)));
+    } else {
+      setSubtasks((current) => [
+        ...current,
+        {
+          id: `subtask-${crypto.randomUUID()}`,
+          title: value.title,
+          priority: value.priority,
+          member: value.member || "+",
+          dueDate: value.dueDate || dueDate,
+        },
+      ]);
+    }
+
+    setSubtaskDialogOpen(false);
+    setEditingSubtaskId(null);
+  }
+
+  const editingSubtask = editingSubtaskId ? subtasks.find((item) => item.id === editingSubtaskId) ?? null : null;
 
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
@@ -999,6 +979,130 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
     return () => window.removeEventListener("click", handleClick);
   }, [priorityOpen]);
 
+  useEffect(() => {
+    if (!subtaskMenuOpen) return;
+
+    const handleClick = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+      if (!event.target.closest("[data-subtask-menu]")) setSubtaskMenuOpen(null);
+    };
+
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
+  }, [subtaskMenuOpen]);
+
+  useEffect(() => {
+    if (!detailsMenuOpen) return;
+
+    const handleClick = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+      if (!event.target.closest("[data-details-actions]")) setDetailsMenuOpen(false);
+    };
+
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
+  }, [detailsMenuOpen]);
+
+  useEffect(() => {
+    if (!datesOpen) return;
+
+    const handleClick = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+      if (event.target.closest("[data-date-picker]") || event.target.closest("[data-date-toggle]")) return;
+      setDatesOpen(false);
+    };
+
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
+  }, [datesOpen]);
+
+  function openAttachmentPicker(target: "resource" | "reply" | "comment") {
+    setAttachmentTarget(target);
+    attachmentInputRef.current?.click();
+  }
+
+  function handleAttachmentChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (attachmentTarget === "resource") setResourceName(file.name);
+    if (attachmentTarget === "reply") setReplyAttachmentName(file.name);
+    if (attachmentTarget === "comment") setCommentAttachmentName(file.name);
+
+    event.target.value = "";
+    setAttachmentTarget(null);
+  }
+
+  function sendReply() {
+    const text = replyText.trim();
+    if (!text) return;
+    setReplies((current) => [text, ...current]);
+    setReplyText("");
+  }
+
+  function sendComment() {
+    const text = comment.trim();
+    if (!text) return;
+    setComments((current) => [text, ...current]);
+    setComment("");
+  }
+
+  async function shareTask() {
+    const shareData = { title: task.title, text: task.description ?? task.title, url: window.location.href };
+
+    if (navigator.share) {
+      await navigator.share(shareData);
+      return;
+    }
+
+    await navigator.clipboard.writeText(shareData.url);
+  }
+
+  function toggleLock() {
+    setLocked((current) => !current);
+  }
+
+  function toggleWatch() {
+    setWatchCount((current) => (current === 1 ? 2 : 1));
+  }
+
+  function previousMonth() {
+    setDateMonth((current) => {
+      const next = current === 0 ? 11 : current - 1;
+      if (current === 0) setDateYear((year) => year - 1);
+      return next;
+    });
+  }
+
+  function nextMonth() {
+    setDateMonth((current) => {
+      const next = current === 11 ? 0 : current + 1;
+      if (current === 11) setDateYear((year) => year + 1);
+      return next;
+    });
+  }
+
+  function addMember() {
+    const name = window.prompt("Member name", "New member");
+    if (!name) return;
+    setMemberList((current) => [...current, name.trim()]);
+  }
+
+  useEffect(() => {
+    if (!updateMenuOpen && !emojiPickerOpen) return;
+
+    const handleClick = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+      if (!event.target.closest("[data-update-actions]") && !event.target.closest("[data-emoji-picker]")) {
+        setUpdateMenuOpen(false);
+        setEmojiPickerOpen(false);
+      }
+    };
+
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
+  }, [emojiPickerOpen, updateMenuOpen]);
+
   return (
     <div className="relative w-full text-[#181818]">
       <button className="sr-only" onClick={onBack}>Back to tasks</button>
@@ -1007,25 +1111,31 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
           <div className="flex items-start justify-between gap-4 pr-2">
             <div><h1 className="text-xl font-semibold tracking-tight">{task.title}</h1><p className="mt-1 max-w-xl text-xs leading-4 text-[#777]">{task.description || "Create clear and detailed API documentation to guide developers in using the inventory and sales metrics features effectively."}</p></div>
             <div className="absolute right-0 top-0 flex items-center gap-1 pb-4">
-              <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={() => navigator.clipboard.writeText(window.location.href)} aria-label="Lock task"><Lock size={14} strokeWidth={2} /></button>
-              <button className="flex h-7 items-center gap-1 rounded border border-[#e8e8e8] px-2 text-[#5968ff] hover:bg-[#f5f5f5]" onClick={() => navigator.clipboard.writeText(task.title)} aria-label="Watch task"><Eye size={14} strokeWidth={2} /> <span className="text-xs">1</span></button>
-              <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={() => navigator.share?.({ title: task.title })} aria-label="Share task"><Share2 size={14} strokeWidth={2} /></button>
+               <button className={`flex h-7 w-7 items-center justify-center rounded border hover:bg-[#f5f5f5] ${locked ? "border-[#181818] bg-[#181818] text-white" : "border-[#e8e8e8]"}`} onClick={toggleLock} aria-label="Lock task"><Lock size={14} strokeWidth={2} /></button>
+               <button className="flex h-7 items-center gap-1 rounded border border-[#e8e8e8] px-2 text-[#5968ff] hover:bg-[#f5f5f5]" onClick={toggleWatch} aria-label="Watch task"><Eye size={14} strokeWidth={2} /> <span className="text-xs">{watchCount}</span></button>
+               <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={() => { void shareTask(); }} aria-label="Share task"><Share2 size={14} strokeWidth={2} /></button>
               <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={onEdit} aria-label="More task options"><MoreHorizontal size={15} strokeWidth={2.5} /></button>
-              <button className="flex h-7 w-7 items-center justify-center rounded bg-[#f1f1f1] text-[#777] hover:bg-[#e8e8e8]" onClick={onBack} aria-label="Close task details"><PanelLeft size={14} strokeWidth={2} /></button>
+               <button className="flex h-7 w-7 items-center justify-center rounded bg-[#f1f1f1] text-[#777] hover:bg-[#e8e8e8]" onClick={onBack} aria-label="Close task details"><PanelLeft size={14} strokeWidth={2} /></button>
             </div>
           </div>
           <div className="mt-5 grid gap-3 text-xs">
             <DetailRow label="Properties" value={<span className="inline-flex items-center gap-2"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f3f3f3] text-[9px] text-[#181818]">A</span><span>Designer</span><Badge className="bg-[#ffeded] text-[#f04444]"><CalendarDays size={10} /> 31 Jul</Badge></span>} />
             <DetailRow label="Labels" value={<span className="flex flex-wrap gap-1">{labels.map((label) => <Badge key={label} className="cursor-pointer bg-[#f5f5f5] text-[#333]" onClick={() => setLabels((current) => current.filter((item) => item !== label))}><Tag size={11} /> {label}</Badge>)}</span>} />
-            <DetailRow label="Resources" value={resource ? <a href={resource} className="inline-flex items-center gap-1.5 text-blue-600 underline" target="_blank"><Paperclip size={11} strokeWidth={2} /> <span>{resource}</span></a> : <button className="inline-flex items-center gap-1.5 text-[#777] hover:text-[#181818]" onClick={() => setResource("https://example.com") }><Paperclip size={11} strokeWidth={2} /> <span>Add document or link...</span></button>} />
+            <DetailRow label="Resources" value={resourceName ? <span className="inline-flex items-center gap-1.5 text-[#181818]"><Paperclip size={11} strokeWidth={2} /> <span>{resourceName}</span></span> : <button className="inline-flex items-center gap-1.5 text-[#777] hover:text-[#181818]" onClick={() => openAttachmentPicker("resource") }><Paperclip size={11} strokeWidth={2} /> <span>Add document or link...</span></button>} />
           </div>
-          <button className="mt-6 inline-flex items-center gap-1 text-xs font-semibold"><FilledCaretDown /> Subtasks</button>
-          <div className="mt-2 max-w-[720px] overflow-hidden rounded-md border border-[#e8e8e8]">
-            <table className="min-w-full text-xs"><thead className="bg-[#f5f5f5]"><tr><th className="px-3 py-2 text-left font-medium">Task</th><th className="px-3 py-2 text-left font-medium">Priority</th><th className="px-3 py-2 text-left font-medium">Members</th><th className="px-3 py-2 text-left font-medium">Due Date</th><th className="px-3 py-2 text-right font-medium">Actions</th></tr></thead><tbody>{["Subtask 1", "Subtask 2", "Subtask 3"].map((item, index) => <tr key={item} className="border-t border-[#e8e8e8]"><td className="px-3 py-2">{item}</td><td className={`px-3 py-2 ${index === 0 ? "text-red-500" : index === 1 ? "text-zinc-400" : "text-orange-500"}`}><PrioritySignal priority={index === 0 ? "HIGH" : index === 1 ? "LOW" : "MEDIUM"} /> {index === 0 ? "High" : index === 1 ? "Low" : "Medium"}</td><td className="px-3 py-2">{index === 0 ? <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white"><UserCircle2 size={12} strokeWidth={2} /></span> : index === 1 ? <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#e8e8e8] bg-white text-[11px] font-medium text-[#181818]">CN</span> : <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#e8e8e8] bg-white text-[11px] font-medium text-[#181818]">+</span>}</td><td className="px-3 py-2">{dueDate}</td><td className="px-3 py-2 text-right"><button className="inline-flex h-5 w-5 items-center justify-center rounded p-0 leading-none hover:bg-[#f5f5f5]" aria-label={`Actions for ${item}`}><MoreHorizontal size={14} className="translate-y-[0.5px]" /></button></td></tr>)}</tbody></table><button className="w-full border-t border-[#e8e8e8] px-3 py-2 text-left text-xs">+ Add Subtask</button>
-          </div>
-          <button className="mt-6 inline-flex items-center gap-1 text-xs font-semibold"><FilledCaretDown /> Updates</button>
-          <div className="mt-2 max-w-[720px] overflow-hidden rounded-md border border-[#e8e8e8] text-xs">
-            <div className="flex items-start justify-between px-3 py-2.5">
+          <button className="mt-6 inline-flex items-center gap-1 text-xs font-semibold" onClick={() => setSubtasksOpen((current) => !current)} aria-expanded={subtasksOpen}>
+            <span className={subtasksOpen ? "transition-transform" : "-rotate-90 transition-transform"}><FilledCaretDown /></span>
+            Subtasks
+          </button>
+          {subtasksOpen ? <div className="mt-2 max-w-[720px] overflow-visible rounded-md border border-[#e8e8e8]">
+            <table className="min-w-full text-xs"><thead className="bg-[#f5f5f5]"><tr><th className="px-3 py-2 text-left font-medium">Task</th><th className="px-3 py-2 text-left font-medium">Priority</th><th className="px-3 py-2 text-left font-medium">Members</th><th className="px-3 py-2 text-left font-medium">Due Date</th><th className="px-3 py-2 text-right font-medium">Actions</th></tr></thead><tbody>{subtasks.map((item, index) => <tr key={item.id} className="border-t border-[#e8e8e8]"><td className="px-3 py-2">{item.title}</td><td className={`px-3 py-2 ${index === 0 ? "text-red-500" : index === 1 ? "text-zinc-400" : "text-orange-500"}`}><PrioritySignal priority={item.priority} /> {index === 0 ? "High" : index === 1 ? "Low" : "Medium"}</td><td className="px-3 py-2">{index === 0 ? <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white"><UserCircle2 size={12} strokeWidth={2} /></span> : <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#e8e8e8] bg-white text-[11px] font-medium text-[#181818]">{item.member}</span>}</td><td className="px-3 py-2">{item.dueDate}</td><td className="relative px-3 py-2 text-right"><div data-subtask-menu className="relative inline-flex overflow-visible"><button className="inline-flex h-5 w-5 items-center justify-center rounded p-0 leading-none hover:bg-[#f5f5f5]" aria-label={`Actions for ${item.title}`} onClick={() => setSubtaskMenuOpen((current) => current === item.id ? null : item.id)}><MoreHorizontal size={14} className="translate-y-[0.5px]" /></button>{subtaskMenuOpen === item.id ? <div className="absolute right-0 top-6 z-50 grid w-24 rounded border border-[#e8e8e8] bg-white p-1 text-left text-[10px] shadow-lg"><button className="rounded px-2 py-1 hover:bg-[#f5f5f5]" onClick={() => duplicateSubtask(item.id)}>Duplicate</button><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={() => openEditSubtask(item.id)}>Edit</button><button className="rounded px-2 py-1 text-left text-red-600 hover:bg-[#fef2f2]" onClick={() => deleteSubtask(item.id)}>Delete</button></div> : null}</div></td></tr>)}</tbody></table><button className="w-full border-t border-[#e8e8e8] px-3 py-2 text-left text-xs" onClick={openAddSubtask}>+ Add Subtask</button>
+          </div> : null}
+          <button className="mt-6 inline-flex items-center gap-1 text-xs font-semibold" onClick={() => setUpdatesOpen((current) => !current)} aria-expanded={updatesOpen}>
+            <span className={updatesOpen ? "transition-transform" : "-rotate-90 transition-transform"}><FilledCaretDown /></span>
+            Updates
+          </button>
+          {updatesOpen ? <div className="mt-2 max-w-[720px] overflow-visible rounded-md border border-[#e8e8e8] text-xs">
+            <div className="relative flex items-start justify-between px-3 py-2.5">
               <div className="flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white">A</span>
                 <div className="flex items-center gap-2">
@@ -1033,44 +1143,81 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
                   <div className="text-[10px] text-[#777]">just now</div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-[#181818]">
-                <button aria-label="Add reaction" className="rounded p-1 hover:bg-[#f5f5f5]"><Smile size={14} strokeWidth={2} /></button>
-                <button aria-label="More comment actions" className="inline-flex h-7 w-7 items-center justify-center rounded p-0 hover:bg-[#f5f5f5]"><MoreHorizontal size={14} className="translate-y-[0.5px]" /></button>
+              <div data-update-actions className="flex items-center gap-2 text-[#181818]">
+                <div className="relative inline-flex" data-emoji-picker-anchor>
+                  <button aria-label="Add reaction" className="rounded p-1 hover:bg-[#f5f5f5]" onClick={() => setEmojiPickerOpen((current) => !current)}><Smile size={14} strokeWidth={2} /></button>
+                  {emojiPickerOpen ? <div data-emoji-picker className="absolute right-0 top-full z-50 mt-2 grid w-[10.5rem] grid-cols-4 gap-1 rounded border border-[#e8e8e8] bg-white p-2 text-lg shadow-lg">{["😀", "😄", "😍", "😎", "🤔", "👍", "🎉", "🔥", "🚀", "✅", "💬", "👏"].map((emoji) => <button key={emoji} className="rounded p-1 hover:bg-[#f5f5f5]" onClick={() => { setReactionEmoji(emoji); setEmojiPickerOpen(false); }}>{emoji}</button>)}</div> : null}
+                </div>
+                <button aria-label="More comment actions" className="inline-flex h-7 w-7 items-center justify-center rounded p-0 hover:bg-[#f5f5f5]" onClick={() => setUpdateMenuOpen((current) => !current)}><MoreHorizontal size={14} className="translate-y-[0.5px]" /></button>
+                {updateMenuOpen ? <div className="absolute right-2 top-8 z-50 grid w-28 rounded border border-[#e8e8e8] bg-white p-1 text-[10px] shadow-lg"><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={() => { setEditingUpdate(true); setUpdateDraft(updateText); setUpdateMenuOpen(false); }}>Edit</button><button className="rounded px-2 py-1 text-left text-red-600 hover:bg-[#fef2f2]" onClick={() => { setUpdateText(""); setUpdateDraft(""); setUpdateMenuOpen(false); }}>Delete</button></div> : null}
               </div>
             </div>
-            <div className="px-3 pb-3 text-[15px] leading-5 text-[#181818]">dsds</div>
+            {editingUpdate ? <div className="px-3 pb-3"><textarea className="min-h-20 w-full rounded-md border border-[#e8e8e8] px-3 py-2 text-[15px] leading-5 outline-none" value={updateDraft} onChange={(event) => setUpdateDraft(event.target.value)} /><div className="mt-2 flex justify-end gap-2"><button className="rounded-md border border-[#e8e8e8] px-3 py-1.5 text-xs" onClick={() => { setEditingUpdate(false); setUpdateDraft(updateText); }}>Cancel</button><button className="rounded-md bg-[#181818] px-3 py-1.5 text-xs text-white" onClick={() => { setUpdateText(updateDraft); setEditingUpdate(false); }}>Save</button></div></div> : <div className="px-3 pb-3 text-[15px] leading-5 text-[#181818]">{updateText || "No update text"}</div>}
             <div className="border-t border-[#e8e8e8] px-3 py-2.5">
               <div className="flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white">A</span>
-                <div className="min-w-0 flex-1 text-[#777]">Leave a reply...</div>
-                <button aria-label="Attach file" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]"><Paperclip size={14} /></button>
-                <button aria-label="Send reply" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]"><Send size={14} /></button>
+                <input className="min-w-0 flex-1 bg-transparent text-[#181818] outline-none placeholder:text-[#777]" value={replyText} onChange={(event) => setReplyText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") sendReply(); }} placeholder="Leave a reply..." />
+                <button aria-label="Attach file" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]" onClick={() => openAttachmentPicker("reply")}><Paperclip size={14} /></button>
+                <button aria-label="Send reply" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]" onClick={sendReply}><Send size={14} /></button>
               </div>
             </div>
-          </div>
+            {replies.length > 0 ? <div className="space-y-2 border-t border-[#e8e8e8] px-3 py-2.5">{replies.map((item, index) => <div key={`${item}-${index}`} className="rounded-md bg-[#fafafa] px-2 py-1.5 text-[11px] text-[#181818]">{item}</div>)}</div> : null}
+          </div> : null}
           <div className="mt-3 max-w-[720px] rounded-md border border-[#e8e8e8] px-3 py-3 text-xs text-[#777]">
             <div className="flex items-center gap-2">
-              <div className="min-w-0 flex-1">Add a comment...</div>
-              <button aria-label="Attach file" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]"><Paperclip size={14} /></button>
-              <button aria-label="Send comment" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]"><Send size={14} /></button>
+                <input className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[#777]" value={comment} onChange={(event) => setComment(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") sendComment(); }} placeholder={commentAttachmentName || "Add a comment..."} />
+                <button aria-label="Attach file" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]" onClick={() => openAttachmentPicker("comment")}><Paperclip size={14} /></button>
+              <button aria-label="Send comment" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]" onClick={sendComment}><Send size={14} /></button>
             </div>
           </div>
+          {comments.length > 0 ? <div className="mt-2 max-w-[720px] space-y-2 text-xs text-[#181818]">{comments.map((item, index) => <div key={`${item}-${index}`} className="rounded-md border border-[#e8e8e8] px-3 py-2">{item}</div>)}</div> : null}
         </section>
         <div className="flex w-full flex-col gap-3">
           <aside className="mt-20 w-full rounded-md border border-[#e8e8e8] p-4 text-xs">
-            <div className="flex items-center justify-between border-b border-[#e8e8e8] pb-2 font-medium"><span className="inline-flex items-center gap-1.5"><FilledCaretDown /> Details</span><div className="flex items-center gap-1 text-[#181818]"><button className="flex h-5 w-5 items-center justify-center rounded hover:bg-[#f5f5f5]" aria-label="Add detail"><Plus size={12} strokeWidth={2} /></button><button className="flex h-5 w-5 items-center justify-center rounded hover:bg-[#f5f5f5]" aria-label="Details settings"><Settings size={12} strokeWidth={2} /></button></div></div>
-            <div className="grid gap-2.5 pt-3">
+            <button className="flex w-full items-center justify-between border-b border-[#e8e8e8] pb-2 font-medium" onClick={() => setDetailsOpen((current) => !current)} aria-expanded={detailsOpen}>
+              <span className="inline-flex items-center gap-1.5"><span className={detailsOpen ? "transition-transform" : "-rotate-90 transition-transform"}><FilledCaretDown /></span> Details</span>
+              <div data-details-actions className="flex items-center gap-1 text-[#181818]" onClick={(event) => event.stopPropagation()}>
+                <button className="flex h-5 w-5 items-center justify-center rounded hover:bg-[#f5f5f5]" aria-label="Add detail" onClick={() => { setDetailDraft(""); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}><Plus size={12} strokeWidth={2} /></button>
+                <button className="flex h-5 w-5 items-center justify-center rounded hover:bg-[#f5f5f5]" aria-label="Details settings" onClick={() => setDetailsMenuOpen((current) => !current)}><Settings size={12} strokeWidth={2} /></button>
+                {detailsMenuOpen ? <div className="absolute right-2 top-8 z-50 grid w-28 rounded border border-[#e8e8e8] bg-white p-1 text-[10px] shadow-lg"><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={() => { setDetailDraft("Status"); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}>Add status row</button><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={() => { setDetailDraft("Custom detail"); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}>Custom field</button></div> : null}
+              </div>
+            </button>
+            {detailsOpen ? <div className="grid gap-2.5 pt-3">
               <DetailRow label="Status" value={<span className="inline-flex items-center gap-1.5 text-[#f59e0b]"><span className="h-2 w-2 rounded-full bg-[#f59e0b]" /> Backlog</span>} />
               <DetailRow label="Priority" value={<div ref={priorityMenuRef} className="relative"><button className="inline-flex items-center gap-1 text-red-500" onClick={() => setPriorityOpen((current) => !current)}><PrioritySignal priority={task.priority} /> {taskPriorityLabel[task.priority]} <ChevronUp size={11} /></button>{priorityOpen ? <div className="absolute left-0 top-6 z-10 w-40 rounded-md border border-[#e8e8e8] bg-white p-2 shadow-lg"><div className="px-2 pb-2 text-[11px] text-[#777]">Priority</div><button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className="inline-flex items-center gap-1.5 text-zinc-500"><span className="inline-block h-[2px] w-[2px] rounded-full bg-zinc-500" /> <span>No Priority</span></span></button><button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className="inline-flex items-center gap-1.5 text-red-500"><PrioritySignal priority="HIGH" /> <span>Ultra</span></span></button><button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className="inline-flex items-center gap-1.5 text-red-500"><PrioritySignal priority="HIGH" /> <span>High</span></span></button><button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className="inline-flex items-center gap-1.5 text-orange-500"><PrioritySignal priority="MEDIUM" /> <span>Medium</span></span></button><button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className="inline-flex items-center gap-1.5 text-zinc-400"><PrioritySignal priority="LOW" /> <span>Low</span></span></button></div> : null}</div>} />
-              <DetailRow label="Members" value={<span className="inline-flex items-center gap-2"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f3f3f3] text-[9px] text-[#181818]">A</span><span>Admin</span></span>} />
-              <DetailRow label="Dates" value={dueDate} />
+              <div className="grid grid-cols-[58px_minmax(0,1fr)] items-center gap-2.5 text-sm">
+                <span className="text-[color:var(--text-muted)]">Members</span>
+                <div className="relative justify-self-start">
+                  <button className="inline-flex items-center gap-1 rounded-full border border-transparent px-2 py-1 font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-2)]" onClick={() => setMembersOpen((current) => !current)} aria-expanded={membersOpen}>
+                    <UserPlus size={13} />
+                    <span>Add members</span>
+                  </button>
+                  {membersOpen ? <div className="absolute right-0 top-8 z-50 w-56 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl"><div className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">Members</div>{memberList.map((member) => <div key={member} className="flex items-center gap-2 rounded-xl px-2 py-2 text-sm hover:bg-[color:var(--surface-2)]"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-[color:var(--primary)] text-[9px] text-white">{member.slice(0, 1).toUpperCase()}</span><span className="flex-1">{member}</span></div>)}<button className="mt-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-sm hover:bg-[color:var(--surface-2)]" onClick={addMember}><UserPlus size={13} /><span>Add member</span></button></div> : null}
+                </div>
+              </div>
+              <div className="grid grid-cols-[58px_minmax(0,1fr)] items-center gap-2.5 text-sm">
+                <span className="text-[color:var(--text-muted)]">Dates</span>
+                <div className="relative justify-self-start">
+                  <button data-date-toggle className="inline-flex items-center gap-1 rounded-full border border-transparent px-2 py-1 font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-2)]" onClick={() => setDatesOpen((current) => !current)} aria-expanded={datesOpen}>
+                    <CalendarDays size={14} />
+                    <span className="rounded-full border border-[color:var(--border)] px-2 py-0.5 text-[11px] font-medium">{startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                    <span className="text-[color:var(--text-muted)]">→</span>
+                    <span className="rounded-full border border-[color:var(--border)] px-2 py-0.5 text-[11px] font-medium text-[color:var(--text-muted)]">{endDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                  </button>
+                  {datesOpen ? <div data-date-picker className="absolute right-0 top-8 z-50 w-72 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-2xl"><div className="flex items-center justify-between pb-3"><button className="rounded-full p-1 hover:bg-[color:var(--surface-2)]" onClick={previousMonth} aria-label="Previous month"><ChevronLeft size={16} /></button><div className="text-sm font-semibold">{new Date(dateYear, dateMonth, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div><button className="rounded-full p-1 hover:bg-[color:var(--surface-2)]" onClick={nextMonth} aria-label="Next month"><ChevronRight size={16} /></button></div><div className="grid grid-cols-7 gap-1 text-center text-[10px] text-[color:var(--text-muted)]">{["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => <span key={day} className="py-1">{day}</span>)}</div><div className="mt-2 grid grid-cols-7 gap-1 text-sm">{Array.from({ length: 35 }).map((_, index) => { const firstOfMonth = new Date(dateYear, dateMonth, 1); const startDay = firstOfMonth.getDay(); const dayNumber = index - startDay + 1; const daysInMonth = new Date(dateYear, dateMonth + 1, 0).getDate(); const isCurrentMonth = dayNumber >= 1 && dayNumber <= daysInMonth; const currentDate = new Date(dateYear, dateMonth, dayNumber); const isSelected = isCurrentMonth && ((dateTarget === "start" && currentDate.toDateString() === startDate.toDateString()) || (dateTarget === "end" && currentDate.toDateString() === endDate.toDateString())); return <button key={index} className={`h-8 rounded-full ${isSelected ? "bg-black text-white" : isCurrentMonth ? "hover:bg-[color:var(--surface-2)]" : "text-[color:var(--text-muted)]"}`} disabled={!isCurrentMonth} onClick={() => dateTarget === "start" ? setStartDate(currentDate) : setEndDate(currentDate)}>{isCurrentMonth ? dayNumber : ""}</button>; })}</div></div> : null}
+                </div>
+              </div>
               <DetailRow label="Labels" value={<span className="inline-flex items-center gap-1.5">Deployment</span>} />
               <DetailRow label="Teams" value={<span className="inline-flex items-center gap-1.5">Development</span>} />
               <DetailRow label="Reporter" value="Admin" />
-            </div>
+            </div> : null}
           </aside>
           <div className="w-full rounded-md border border-[#e8e8e8] px-3 py-2.5 text-xs">
-            <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#181818]"><FilledCaretDown /> <span>Updates</span></div>
+            <button className="flex w-full items-center gap-1.5 text-[11px] font-medium text-[#181818]" onClick={() => setUpdatesOpen((current) => !current)} aria-expanded={updatesOpen}>
+              <span className={updatesOpen ? "transition-transform" : "-rotate-90 transition-transform"}><FilledCaretDown /></span>
+              <span>Updates</span>
+            </button>
+            {updatesOpen ? <>
             <div className="mt-2 flex items-start gap-2">
               <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#fff1f1] text-[#ff5a5a]"><span className="inline-flex items-end gap-[2px]" aria-hidden="true"><span className="h-[4px] w-[2px] rounded-full bg-[#ff5a5a]" /><span className="h-[7px] w-[2px] rounded-full bg-[#ff5a5a]" /><span className="h-[10px] w-[2px] rounded-full bg-[#ff5a5a]" /></span></span>
               <div className="min-w-0">
@@ -1085,9 +1232,22 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
                 <div className="text-[11px] leading-4 text-[#777]">posted an update · Aug 2026</div>
               </div>
             </div>
+            </> : null}
           </div>
         </div>
       </div>
+      <input ref={attachmentInputRef} className="hidden" type="file" onChange={handleAttachmentChange} />
+      <SubtaskFormModal
+        open={subtaskDialogOpen}
+        onClose={() => {
+          setSubtaskDialogOpen(false);
+          setEditingSubtaskId(null);
+        }}
+        onSubmit={handleSubtaskSubmit}
+        initialValue={editingSubtask}
+        title={editingSubtask ? "Edit subtask" : "Create subtask"}
+      />
+      {detailDialogOpen ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setDetailDialogOpen(false)} role="presentation"><div className="w-full max-w-sm rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="detail-dialog-title" onClick={(event) => event.stopPropagation()}><div className="mb-4 flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">Details</p><h2 id="detail-dialog-title" className="mt-1 text-xl font-semibold text-[color:var(--text)]">Add detail</h2></div><button className="rounded-full border border-[color:var(--border)] p-2" onClick={() => setDetailDialogOpen(false)} aria-label="Close dialog"><PanelLeft size={14} /></button></div><div className="grid gap-4"><div className="grid gap-2"><label className="text-sm font-medium text-[color:var(--text)]">Detail label</label><Input value={detailDraft} onChange={(event) => setDetailDraft(event.target.value)} placeholder="Add detail name" autoFocus /></div><div className="flex justify-end gap-2"><button className="rounded-xl border border-[color:var(--border)] px-4 py-2 text-sm" onClick={() => setDetailDialogOpen(false)}>Cancel</button><button className="rounded-xl bg-[color:var(--text)] px-4 py-2 text-sm text-white" onClick={() => { if (!detailDraft.trim()) return; setDetailEntries((current) => [...current, detailDraft.trim()]); setDetailDialogOpen(false); setDetailDraft(""); }}>Add</button></div></div></div></div> : null}
     </div>
   );
 }

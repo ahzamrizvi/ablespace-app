@@ -1,13 +1,13 @@
 import type { AuthResponse, Task, TaskPriority, TaskStatus, User } from "./types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
 
-async function request<T>(path: string, options: RequestInit = {}, token?: string) {
+async function request<T>(path: string, options: RequestInit = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers ?? {}),
     },
   });
@@ -28,22 +28,21 @@ export function guestLogin() {
   return request<AuthResponse>("/auth/guest", { method: "POST", body: JSON.stringify({}) });
 }
 
-export function getCurrentUser(token: string) {
-  return request<User | null>("/auth/me", { method: "GET" }, token);
+export function getCurrentUser() {
+  return request<User | null>("/auth/me", { method: "GET" });
 }
 
-export function listTasks(token: string, query?: { q?: string; status?: TaskStatus | ""; priority?: TaskPriority | "" }) {
+export function listTasks(query?: { q?: string; status?: TaskStatus | ""; priority?: TaskPriority | "" }) {
   const params = new URLSearchParams();
 
   if (query?.q) params.set("q", query.q);
   if (query?.status) params.set("status", query.status);
   if (query?.priority) params.set("priority", query.priority);
 
-  return request<Task[]>(`/tasks${params.toString() ? `?${params.toString()}` : ""}`, { method: "GET" }, token);
+  return request<Task[]>(`/tasks${params.toString() ? `?${params.toString()}` : ""}`, { method: "GET" });
 }
 
 export function createTask(
-  token: string,
   payload: {
     title: string;
     description?: string;
@@ -52,11 +51,10 @@ export function createTask(
     dueDate?: string;
   },
 ) {
-  return request<Task>("/tasks", { method: "POST", body: JSON.stringify(payload) }, token);
+  return request<Task>("/tasks", { method: "POST", body: JSON.stringify(payload) });
 }
 
 export function updateTask(
-  token: string,
   id: string,
   payload: {
     title?: string;
@@ -66,9 +64,13 @@ export function updateTask(
     dueDate?: string | null;
   },
 ) {
-  return request<Task>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(payload) }, token);
+  return request<Task>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
-export function deleteTask(token: string, id: string) {
-  return request<void>(`/tasks/${id}`, { method: "DELETE" }, token);
+export function deleteTask(id: string) {
+  return request<void>(`/tasks/${id}`, { method: "DELETE" });
+}
+
+export function logout() {
+  return request<{ ok: boolean }>("/auth/logout", { method: "POST" });
 }

@@ -11,8 +11,6 @@ import { Badge } from "./ui/badge";
 import { TaskFormModal } from "./task-form-modal";
 import { ThemeToggle } from "./theme-toggle";
 
-const tokenKey = "able-space.token";
-
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", active: true },
   { icon: ListTodo, label: "Tasks", active: false },
@@ -56,7 +54,6 @@ export function TaskDashboard() {
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [query, setQuery] = useState("");
@@ -67,10 +64,6 @@ export function TaskDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const storedToken = window.localStorage.getItem(tokenKey);
-    if (storedToken) {
-      setToken(storedToken);
-    }
     setReady(true);
   }, []);
 
@@ -79,17 +72,10 @@ export function TaskDashboard() {
       return;
     }
 
-    if (!token) {
-      setLoading(false);
-      setUser(null);
-      setTasks([]);
-      return;
-    }
-
     let active = true;
     setLoading(true);
 
-    getCurrentUser(token)
+    getCurrentUser()
       .then((currentUser) => {
         if (!active) return;
 
@@ -99,7 +85,7 @@ export function TaskDashboard() {
         }
 
         setUser(currentUser);
-        return loadTasks(token);
+        return loadTasks();
       })
       .catch(() => {
         if (active) {
@@ -115,7 +101,7 @@ export function TaskDashboard() {
     return () => {
       active = false;
     };
-  }, [ready, token]);
+  }, [ready]);
 
   const filteredTasks = useMemo(
     () =>
@@ -144,9 +130,9 @@ export function TaskDashboard() {
     [tasks],
   );
 
-  async function loadTasks(currentToken: string) {
+  async function loadTasks() {
     try {
-      const response = await listTasks(currentToken);
+      const response = await listTasks();
       setTasks(response);
       setError(null);
     } catch (caughtError) {
@@ -155,10 +141,9 @@ export function TaskDashboard() {
   }
 
   function clearSession() {
-    window.localStorage.removeItem(tokenKey);
-    setToken(null);
     setUser(null);
     setTasks([]);
+    setLoading(false);
   }
 
   async function handleGuestLogin() {
@@ -167,10 +152,8 @@ export function TaskDashboard() {
 
     try {
       const response = await guestLogin();
-      window.localStorage.setItem(tokenKey, response.token);
-      setToken(response.token);
       setUser(response.user);
-      await loadTasks(response.token);
+      await loadTasks();
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Guest login failed");
     } finally {
@@ -180,11 +163,10 @@ export function TaskDashboard() {
   }
 
   async function refreshTasks() {
-    if (!token) return;
     setLoading(true);
     setError(null);
     try {
-      await loadTasks(token);
+      await loadTasks();
     } finally {
       setLoading(false);
     }
@@ -203,12 +185,10 @@ export function TaskDashboard() {
     priority?: TaskPriority;
     dueDate?: string;
   }) {
-    if (!token) return;
-
     if (editingTask) {
-      await updateTask(token, editingTask.id, payload);
+      await updateTask(editingTask.id, payload);
     } else {
-      await createTask(token, payload);
+      await createTask(payload);
     }
 
     setEditingTask(null);
@@ -216,18 +196,16 @@ export function TaskDashboard() {
   }
 
   async function handleDeleteTask(id: string) {
-    if (!token) return;
-    await deleteTask(token, id);
+    await deleteTask(id);
     await refreshTasks();
   }
 
   async function handleStatusChange(task: Task, nextStatus: TaskStatus) {
-    if (!token) return;
-    await updateTask(token, task.id, { status: nextStatus });
+    await updateTask(task.id, { status: nextStatus });
     await refreshTasks();
   }
 
-  const isAuthenticated = Boolean(token && user);
+  const isAuthenticated = Boolean(user);
 
   if (!isAuthenticated) {
     return (
