@@ -28,6 +28,7 @@ import {
   Search,
   Send,
   Share2,
+  Settings,
   Settings2,
   Smile,
   SunMedium,
@@ -873,12 +874,15 @@ function PrioritySignal({ priority }: { priority: TaskPriority }) {
   );
 }
 
-function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => void; onEdit: () => void }) {
+/* function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => void; onEdit: () => void }) {
   const [comment, setComment] = useState("");
   const [comments, setComments] = useState<string[]>([]);
   const [priorityOpen, setPriorityOpen] = useState(false);
-  const [labels, setLabels] = useState(["Research", "Design", "Deployment", "Testing"]);
+  const [labels, setLabels] = useState(["Research", "Design", "Development", "Testing", "Deployment"]);
   const [resource, setResource] = useState("");
+  const description = task.title === "Write API Documentation"
+    ? "Create clear and detailed API documentation to guide developers in using the inventory and sales metrics features effectively."
+    : task.description || "Create clear and detailed documentation to guide developers effectively.";
   const dueDate = task.dueDate ? new Date(`${task.dueDate}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "No due date";
 
   return (
@@ -887,18 +891,18 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <section>
           <div className="flex items-start justify-between gap-4 pr-2">
-            <div><h1 className="text-xl font-semibold tracking-tight">{task.title}</h1><p className="mt-1 max-w-xl text-xs leading-4 text-[#777]">{task.description || "Create clear and detailed documentation to guide developers effectively."}</p></div>
+            <div><h1 className="text-xl font-semibold tracking-tight">{task.title}</h1><p className="mt-1 max-w-xl text-xs leading-4 text-[#777]">{description}</p></div>
             <div className="absolute right-0 top-0 flex items-center gap-1 pb-4">
               <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={() => navigator.clipboard.writeText(window.location.href)} aria-label="Lock task"><Lock size={14} strokeWidth={2} /></button>
               <button className="flex h-7 items-center gap-1 rounded border border-[#e8e8e8] px-2 text-[#5968ff] hover:bg-[#f5f5f5]" onClick={() => navigator.clipboard.writeText(task.title)} aria-label="Watch task"><Eye size={14} strokeWidth={2} /> <span className="text-xs">1</span></button>
               <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={() => navigator.share?.({ title: task.title })} aria-label="Share task"><Share2 size={14} strokeWidth={2} /></button>
-              <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={onEdit} aria-label="More task options"><MoreHorizontal size={15} strokeWidth={2.5} /></button>
+              <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={onEdit} aria-label="More task options"><MoreHorizontal size={15} strokeWidth={2.5} className="translate-y-[0.5px]" /></button>
               <button className="flex h-7 w-7 items-center justify-center rounded bg-[#f1f1f1] text-[#777] hover:bg-[#e8e8e8]" onClick={onBack} aria-label="Close task details"><PanelLeft size={14} strokeWidth={2} /></button>
             </div>
           </div>
           <div className="mt-5 grid gap-3 text-xs">
             <DetailRow label="Properties" value={<span className="inline-flex items-center gap-2"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white">A</span> Admin <Badge className="bg-[#ffeded] text-[#f04444]"><CalendarDays size={10} /> 31 Jul</Badge></span>} />
-            <DetailRow label="Labels" value={<span className="flex flex-wrap gap-1">{labels.map((label) => <Badge key={label} className="cursor-pointer bg-[#f5f5f5] text-[#333]" onClick={() => setLabels((current) => current.filter((item) => item !== label))}><Tag size={11} /> {label}</Badge>)}<button className="text-[#777]" onClick={() => setLabels((current) => [...current, "New label"])}>+</button></span>} />
+            <DetailRow label="Labels" value={<span className="flex flex-wrap gap-1">{labels.map((label) => <Badge key={label} className="cursor-pointer bg-[#f5f5f5] text-[#333]" onClick={() => setLabels((current) => current.filter((item) => item !== label))}><Tag size={11} /> {label}</Badge>)}</span>} />
             <DetailRow label="Resources" value={resource ? <a href={resource} className="text-blue-600 underline" target="_blank">{resource}</a> : <button className="text-[#777] hover:text-[#181818]" onClick={() => setResource("https://example.com")}>Add document or link...</button>} />
           </div>
           <h2 className="mt-6 text-xs font-semibold">Subtasks</h2>
@@ -973,9 +977,131 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
     </div>
   );
 }
+*/
+
+function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => void; onEdit: () => void }) {
+  const [comment, setComment] = useState("");
+  const [comments, setComments] = useState<string[]>([]);
+  const [priorityOpen, setPriorityOpen] = useState(false);
+  const priorityMenuRef = useRef<HTMLDivElement | null>(null);
+  const [labels, setLabels] = useState(["Research", "Design", "Development", "Testing", "Deployment"]);
+  const [resource, setResource] = useState("");
+  const dueDate = task.dueDate ? new Date(`${task.dueDate}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "No due date";
+
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      if (!priorityOpen) return;
+      if (!(event.target instanceof Node)) return;
+      if (!priorityMenuRef.current?.contains(event.target)) setPriorityOpen(false);
+    };
+
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
+  }, [priorityOpen]);
+
+  return (
+    <div className="relative w-full text-[#181818]">
+      <button className="sr-only" onClick={onBack}>Back to tasks</button>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <section>
+          <div className="flex items-start justify-between gap-4 pr-2">
+            <div><h1 className="text-xl font-semibold tracking-tight">{task.title}</h1><p className="mt-1 max-w-xl text-xs leading-4 text-[#777]">{task.description || "Create clear and detailed API documentation to guide developers in using the inventory and sales metrics features effectively."}</p></div>
+            <div className="absolute right-0 top-0 flex items-center gap-1 pb-4">
+              <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={() => navigator.clipboard.writeText(window.location.href)} aria-label="Lock task"><Lock size={14} strokeWidth={2} /></button>
+              <button className="flex h-7 items-center gap-1 rounded border border-[#e8e8e8] px-2 text-[#5968ff] hover:bg-[#f5f5f5]" onClick={() => navigator.clipboard.writeText(task.title)} aria-label="Watch task"><Eye size={14} strokeWidth={2} /> <span className="text-xs">1</span></button>
+              <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={() => navigator.share?.({ title: task.title })} aria-label="Share task"><Share2 size={14} strokeWidth={2} /></button>
+              <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={onEdit} aria-label="More task options"><MoreHorizontal size={15} strokeWidth={2.5} /></button>
+              <button className="flex h-7 w-7 items-center justify-center rounded bg-[#f1f1f1] text-[#777] hover:bg-[#e8e8e8]" onClick={onBack} aria-label="Close task details"><PanelLeft size={14} strokeWidth={2} /></button>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 text-xs">
+            <DetailRow label="Properties" value={<span className="inline-flex items-center gap-2"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f3f3f3] text-[9px] text-[#181818]">A</span><span>Designer</span><Badge className="bg-[#ffeded] text-[#f04444]"><CalendarDays size={10} /> 31 Jul</Badge></span>} />
+            <DetailRow label="Labels" value={<span className="flex flex-wrap gap-1">{labels.map((label) => <Badge key={label} className="cursor-pointer bg-[#f5f5f5] text-[#333]" onClick={() => setLabels((current) => current.filter((item) => item !== label))}><Tag size={11} /> {label}</Badge>)}</span>} />
+            <DetailRow label="Resources" value={resource ? <a href={resource} className="inline-flex items-center gap-1.5 text-blue-600 underline" target="_blank"><Paperclip size={11} strokeWidth={2} /> <span>{resource}</span></a> : <button className="inline-flex items-center gap-1.5 text-[#777] hover:text-[#181818]" onClick={() => setResource("https://example.com") }><Paperclip size={11} strokeWidth={2} /> <span>Add document or link...</span></button>} />
+          </div>
+          <button className="mt-6 inline-flex items-center gap-1 text-xs font-semibold"><FilledCaretDown /> Subtasks</button>
+          <div className="mt-2 max-w-[720px] overflow-hidden rounded-md border border-[#e8e8e8]">
+            <table className="min-w-full text-xs"><thead className="bg-[#f5f5f5]"><tr><th className="px-3 py-2 text-left font-medium">Task</th><th className="px-3 py-2 text-left font-medium">Priority</th><th className="px-3 py-2 text-left font-medium">Members</th><th className="px-3 py-2 text-left font-medium">Due Date</th><th className="px-3 py-2 text-right font-medium">Actions</th></tr></thead><tbody>{["Subtask 1", "Subtask 2", "Subtask 3"].map((item, index) => <tr key={item} className="border-t border-[#e8e8e8]"><td className="px-3 py-2">{item}</td><td className={`px-3 py-2 ${index === 0 ? "text-red-500" : index === 1 ? "text-zinc-400" : "text-orange-500"}`}><PrioritySignal priority={index === 0 ? "HIGH" : index === 1 ? "LOW" : "MEDIUM"} /> {index === 0 ? "High" : index === 1 ? "Low" : "Medium"}</td><td className="px-3 py-2">{index === 0 ? <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white"><UserCircle2 size={12} strokeWidth={2} /></span> : index === 1 ? <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#e8e8e8] bg-white text-[11px] font-medium text-[#181818]">CN</span> : <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#e8e8e8] bg-white text-[11px] font-medium text-[#181818]">+</span>}</td><td className="px-3 py-2">{dueDate}</td><td className="px-3 py-2 text-right"><button className="inline-flex h-5 w-5 items-center justify-center rounded p-0 leading-none hover:bg-[#f5f5f5]" aria-label={`Actions for ${item}`}><MoreHorizontal size={14} className="translate-y-[0.5px]" /></button></td></tr>)}</tbody></table><button className="w-full border-t border-[#e8e8e8] px-3 py-2 text-left text-xs">+ Add Subtask</button>
+          </div>
+          <button className="mt-6 inline-flex items-center gap-1 text-xs font-semibold"><FilledCaretDown /> Updates</button>
+          <div className="mt-2 max-w-[720px] overflow-hidden rounded-md border border-[#e8e8e8] text-xs">
+            <div className="flex items-start justify-between px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white">A</span>
+                <div className="flex items-center gap-2">
+                  <div className="text-[11px] font-medium">Ankit Dutta</div>
+                  <div className="text-[10px] text-[#777]">just now</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-[#181818]">
+                <button aria-label="Add reaction" className="rounded p-1 hover:bg-[#f5f5f5]"><Smile size={14} strokeWidth={2} /></button>
+                <button aria-label="More comment actions" className="inline-flex h-7 w-7 items-center justify-center rounded p-0 hover:bg-[#f5f5f5]"><MoreHorizontal size={14} className="translate-y-[0.5px]" /></button>
+              </div>
+            </div>
+            <div className="px-3 pb-3 text-[15px] leading-5 text-[#181818]">dsds</div>
+            <div className="border-t border-[#e8e8e8] px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white">A</span>
+                <div className="min-w-0 flex-1 text-[#777]">Leave a reply...</div>
+                <button aria-label="Attach file" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]"><Paperclip size={14} /></button>
+                <button aria-label="Send reply" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]"><Send size={14} /></button>
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 max-w-[720px] rounded-md border border-[#e8e8e8] px-3 py-3 text-xs text-[#777]">
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">Add a comment...</div>
+              <button aria-label="Attach file" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]"><Paperclip size={14} /></button>
+              <button aria-label="Send comment" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]"><Send size={14} /></button>
+            </div>
+          </div>
+        </section>
+        <div className="flex w-full flex-col gap-3">
+          <aside className="mt-20 w-full rounded-md border border-[#e8e8e8] p-4 text-xs">
+            <div className="flex items-center justify-between border-b border-[#e8e8e8] pb-2 font-medium"><span className="inline-flex items-center gap-1.5"><FilledCaretDown /> Details</span><div className="flex items-center gap-1 text-[#181818]"><button className="flex h-5 w-5 items-center justify-center rounded hover:bg-[#f5f5f5]" aria-label="Add detail"><Plus size={12} strokeWidth={2} /></button><button className="flex h-5 w-5 items-center justify-center rounded hover:bg-[#f5f5f5]" aria-label="Details settings"><Settings size={12} strokeWidth={2} /></button></div></div>
+            <div className="grid gap-2.5 pt-3">
+              <DetailRow label="Status" value={<span className="inline-flex items-center gap-1.5 text-[#f59e0b]"><span className="h-2 w-2 rounded-full bg-[#f59e0b]" /> Backlog</span>} />
+              <DetailRow label="Priority" value={<div ref={priorityMenuRef} className="relative"><button className="inline-flex items-center gap-1 text-red-500" onClick={() => setPriorityOpen((current) => !current)}><PrioritySignal priority={task.priority} /> {taskPriorityLabel[task.priority]} <ChevronUp size={11} /></button>{priorityOpen ? <div className="absolute left-0 top-6 z-10 w-40 rounded-md border border-[#e8e8e8] bg-white p-2 shadow-lg"><div className="px-2 pb-2 text-[11px] text-[#777]">Priority</div><button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className="inline-flex items-center gap-1.5 text-zinc-500"><span className="inline-block h-[2px] w-[2px] rounded-full bg-zinc-500" /> <span>No Priority</span></span></button><button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className="inline-flex items-center gap-1.5 text-red-500"><PrioritySignal priority="HIGH" /> <span>Ultra</span></span></button><button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className="inline-flex items-center gap-1.5 text-red-500"><PrioritySignal priority="HIGH" /> <span>High</span></span></button><button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className="inline-flex items-center gap-1.5 text-orange-500"><PrioritySignal priority="MEDIUM" /> <span>Medium</span></span></button><button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className="inline-flex items-center gap-1.5 text-zinc-400"><PrioritySignal priority="LOW" /> <span>Low</span></span></button></div> : null}</div>} />
+              <DetailRow label="Members" value={<span className="inline-flex items-center gap-2"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f3f3f3] text-[9px] text-[#181818]">A</span><span>Admin</span></span>} />
+              <DetailRow label="Dates" value={dueDate} />
+              <DetailRow label="Labels" value={<span className="inline-flex items-center gap-1.5">Deployment</span>} />
+              <DetailRow label="Teams" value={<span className="inline-flex items-center gap-1.5">Development</span>} />
+              <DetailRow label="Reporter" value="Admin" />
+            </div>
+          </aside>
+          <div className="w-full rounded-md border border-[#e8e8e8] px-3 py-2.5 text-xs">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#181818]"><FilledCaretDown /> <span>Updates</span></div>
+            <div className="mt-2 flex items-start gap-2">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#fff1f1] text-[#ff5a5a]"><span className="inline-flex items-end gap-[2px]" aria-hidden="true"><span className="h-[4px] w-[2px] rounded-full bg-[#ff5a5a]" /><span className="h-[7px] w-[2px] rounded-full bg-[#ff5a5a]" /><span className="h-[10px] w-[2px] rounded-full bg-[#ff5a5a]" /></span></span>
+              <div className="min-w-0">
+                <div className="text-[11px] font-medium leading-4">You</div>
+                <div className="truncate text-[11px] leading-4 text-[#777]">changed priority from No priority to Ur...</div>
+              </div>
+            </div>
+            <div className="mt-3 flex items-start gap-2">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white">A</span>
+              <div className="min-w-0">
+                <div className="text-[11px] font-medium leading-4">You</div>
+                <div className="text-[11px] leading-4 text-[#777]">posted an update · Aug 2026</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FilledCaretDown() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+      <path d="M2.2 4.25 6 8.05l3.8-3.8Z" />
+    </svg>
+  );
+}
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return <div className="flex items-center gap-2.5 leading-4"><span className="w-[58px] shrink-0 text-[11px] text-[#777]">{label}</span><span className="min-w-0 text-[11px] text-[#181818]">{value}</span></div>;
+  return <div className="flex items-center gap-2.5 leading-4"><span className="w-[58px] shrink-0 text-[11px] text-[#777]">{label}</span><div className="min-w-0 text-[11px] text-[#181818]">{value}</div></div>;
 }
 
 function ProjectsScreen({
