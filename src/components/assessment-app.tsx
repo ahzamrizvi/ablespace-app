@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
+  Check,
   ChevronDown,
   ChevronRight,
   ChevronLeft,
@@ -373,7 +374,7 @@ export function AssessmentApp() {
   return (
     <div className="min-h-screen bg-white text-[#181818]">
       <div className="flex min-h-screen overflow-hidden">
-        <aside className={`${sidebarVisible ? "lg:flex" : "lg:hidden"} hidden w-[264px] shrink-0 border-r border-[#ececec] bg-[#fafafa] px-3 py-3 lg:flex-col`}>
+        <aside className={`${view === "profile" ? "hidden" : sidebarVisible ? "lg:flex" : "lg:hidden"} hidden w-[264px] shrink-0 border-r border-[#ececec] bg-[#fafafa] px-3 py-3 lg:flex-col`}>
           <div className="relative">
             <button className="flex w-full items-center justify-between rounded-2xl px-2 py-2 text-left hover:bg-[color:var(--surface-2)]" onClick={() => setOpenMenu(openMenu === "user" ? null : "user")}>
               <div className="flex items-center gap-2">
@@ -427,31 +428,32 @@ export function AssessmentApp() {
 
         <main className="min-w-0 flex-1 overflow-auto bg-white">
           <div>
-            <header className="flex h-[42px] items-center justify-between gap-3 border-b border-[#eeeeee] px-3">
-              <div className="flex items-center gap-3">
-                <button className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--border)] lg:hidden" onClick={() => setOpenMenu(openMenu === "workspace" ? null : "workspace") }>
-                  <Menu size={18} />
-                </button>
-              <div>
-                {view === "tasks" || view === "task-detail" ? (
-                  <>
-                  <button className="flex h-7 w-7 items-center justify-center text-[#181818] hover:bg-[#f5f5f5]" onClick={() => setSidebarVisible((current) => !current)} aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}>
-                    <PanelLeft size={13} strokeWidth={1.8} />
+            {view !== "profile" ? (
+              <header className="flex h-[42px] items-center justify-between gap-3 border-b border-[#eeeeee] px-3">
+                <div className="flex items-center gap-3">
+                  <button className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--border)] lg:hidden" onClick={() => setOpenMenu(openMenu === "workspace" ? null : "workspace") }>
+                    <Menu size={18} />
                   </button>
-                  <span className="h-3 w-px bg-[#d9d9d9]" aria-hidden="true" />
-                  </>
-                ) : (
-                  <>
-                    <div className="text-xs uppercase tracking-[0.22em] text-[color:var(--text-muted)]">{view}</div>
-                    <h1 className="text-xl font-semibold sm:text-2xl">{view === "projects" ? "Projects" : "Profile"}</h1>
-                  </>
-                )}
-              </div>
-              </div>
+                <div>
+                  {view === "tasks" || view === "task-detail" ? (
+                    <>
+                    <button className="flex h-7 w-7 items-center justify-center text-[#181818] hover:bg-[#f5f5f5]" onClick={() => setSidebarVisible((current) => !current)} aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}>
+                      <PanelLeft size={13} strokeWidth={1.8} />
+                    </button>
+                    <span className="h-3 w-px bg-[#d9d9d9]" aria-hidden="true" />
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-xs uppercase tracking-[0.22em] text-[color:var(--text-muted)]">{view}</div>
+                      <h1 className="text-xl font-semibold sm:text-2xl">Projects</h1>
+                    </>
+                  )}
+                </div>
+                </div>
+              </header>
+            ) : null}
 
-            </header>
-
-            <div className="px-4 py-5">
+            <div className={view === "profile" ? "px-4 py-3" : "px-4 py-5"}>
               {view === "tasks" ? (
                 <TasksScreen
                   user={user}
@@ -494,6 +496,7 @@ export function AssessmentApp() {
                   accent={accent}
                   setAccent={setAccent}
                   onThemeChange={handleToggleTheme}
+                  onLogout={handleLogout}
                   onNavigate={(next) => setView(next)}
                 />
               ) : null}
@@ -522,9 +525,9 @@ export function AssessmentApp() {
 function PyramidMark() {
   return (
     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] bg-[#181818] text-white" aria-hidden="true">
-      <svg viewBox="36 28 90 100" className="h-5 w-5" fill="none">
-        <path d="M81 39 49 93l17 25 46-11-31-68Z" stroke="currentColor" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="m81 39-15 79 46-11" stroke="currentColor" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none">
+        <path d="M6 18.5 12 5l6 13.5H6Z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" />
+        <path d="M12 5 9 18.5M12 5l3 13.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
       </svg>
     </span>
   );
@@ -563,48 +566,63 @@ function UserMenu({ accent, onAccentChange, onThemeChange, onNavigateProfile, on
   }, [onClose]);
 
   return (
-    <div data-user-menu className="absolute left-0 top-[calc(100%+10px)] z-50 w-[min(300px,calc(100vw-1rem))] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl lg:w-[300px]">
-      <div className="w-full rounded-xl bg-[color:var(--surface)] p-2">
-        <MenuItem icon={SunMedium} label="Change Theme" onClick={() => setSubmenu(submenu === "theme" ? null : "theme")} />
-        <MenuItem icon={Palette} label="Color Mode" onClick={() => setSubmenu(submenu === "color" ? null : "color")} />
-        <MenuItem icon={Settings2} label="Settings" onClick={onNavigateProfile} />
-        <MenuItem icon={LogOut} label="Logout" onClick={onLogout} danger />
+    <div data-user-menu className="absolute left-0 top-[calc(100%+10px)] z-50 flex items-start gap-2">
+      <div className="w-[246px] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl">
+        <div className="border-b border-[color:var(--border)] px-3 py-4 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[color:var(--surface-2)] text-lg font-semibold text-[color:var(--text)]">G</div>
+          <div className="mt-3 font-semibold leading-5 text-[color:var(--text)]">Guest User</div>
+          <div className="text-sm text-[color:var(--text-muted)]">Guest account</div>
+        </div>
+
+        <div className="w-full p-2">
+          <div className="relative">
+            <MenuItem icon={SunMedium} label="Change Theme" onClick={() => setSubmenu(submenu === "theme" ? null : "theme")} />
+            {submenu === "theme" ? (
+              <div className="absolute left-[calc(100%+16px)] top-0 w-[210px] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl">
+                <div className="px-3 py-2 text-sm text-[color:var(--text-muted)]">Theme</div>
+                <SubMenuItem icon={SunMedium} label="Light" selected onClick={() => onThemeChange("light")} />
+                <SubMenuItem icon={MoonStar} label="Dark" onClick={() => onThemeChange("dark")} />
+              </div>
+            ) : null}
+          </div>
+          <div className="relative mt-1">
+            <MenuItem icon={Palette} label="Color Mode" onClick={() => setSubmenu(submenu === "color" ? null : "color")} />
+            {submenu === "color" ? (
+              <div className="absolute left-[calc(100%+16px)] top-0 w-[210px] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl">
+                <div className="px-3 py-2 text-sm text-[color:var(--text-muted)]">Color Mode</div>
+                {accentOptions.map((option) => (
+                  <SubMenuItem key={option.value} label={option.label} swatch={option.value} selected={accent === option.value} onClick={() => onAccentChange(option.value)} />
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <MenuItem icon={Settings2} label="Settings" onClick={onNavigateProfile} showArrow={false} />
+        </div>
       </div>
-
-      {submenu === "theme" ? (
-        <div className="mt-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2">
-          <SubMenuItem icon={SunMedium} label="Light" onClick={() => onThemeChange("light")} />
-          <SubMenuItem icon={MoonStar} label="Dark" onClick={() => onThemeChange("dark")} />
-        </div>
-      ) : null}
-
-      {submenu === "color" ? (
-        <div className="mt-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2">
-          {accentOptions.map((option) => (
-            <SubMenuItem key={option.value} label={option.label} swatch={option.value} selected={accent === option.value} onClick={() => onAccentChange(option.value)} />
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }
 
-function MenuItem({ icon: Icon, label, onClick, danger }: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; onClick: () => void; danger?: boolean; }) {
+function MenuItem({ icon: Icon, label, onClick, danger, showArrow = true }: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; onClick: () => void; danger?: boolean; showArrow?: boolean; }) {
   return (
     <button className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-[color:var(--surface-2)] ${danger ? "text-red-600" : "text-[color:var(--text)]"}`} onClick={onClick}>
       <Icon size={14} />
       {label}
-      <ChevronRight size={14} className="ml-auto text-[color:var(--text-muted)]" />
+      {showArrow ? (
+        <svg className="ml-auto" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path d="M5 3.5L8.5 7L5 10.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ) : null}
     </button>
   );
 }
 
 function SubMenuItem({ icon: Icon, label, onClick, swatch, selected }: { icon?: React.ComponentType<{ size?: number; className?: string }>; label: string; onClick: () => void; swatch?: Accent; selected?: boolean; }) {
   return (
-    <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-[color:var(--surface-2)]" onClick={onClick}>
+    <button className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-[color:var(--surface-2)] ${selected ? "bg-[color:var(--surface-2)]" : ""}`} onClick={onClick}>
       {swatch ? <span className={`h-3.5 w-3.5 rounded-sm ${accentSwatches[swatch]}`} /> : Icon ? <Icon size={13} /> : null}
       <span className="flex-1 text-left">{label}</span>
-      {selected ? <span className="text-[color:var(--primary)]">✓</span> : null}
+      {selected ? <Check size={14} className="text-black" /> : null}
     </button>
   );
 }
@@ -1172,16 +1190,18 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
           </div>
           {comments.length > 0 ? <div className="mt-2 max-w-[720px] space-y-2 text-xs text-[#181818]">{comments.map((item, index) => <div key={`${item}-${index}`} className="rounded-md border border-[#e8e8e8] px-3 py-2">{item}</div>)}</div> : null}
         </section>
-        <div className="flex w-full flex-col gap-3">
+          <div className="flex w-full flex-col gap-3">
           <aside className="mt-20 w-full rounded-md border border-[#e8e8e8] p-4 text-xs">
-            <button className="flex w-full items-center justify-between border-b border-[#e8e8e8] pb-2 font-medium" onClick={() => setDetailsOpen((current) => !current)} aria-expanded={detailsOpen}>
-              <span className="inline-flex items-center gap-1.5"><span className={detailsOpen ? "transition-transform" : "-rotate-90 transition-transform"}><FilledCaretDown /></span> Details</span>
-              <div data-details-actions className="flex items-center gap-1 text-[#181818]" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-[#e8e8e8] pb-2 font-medium">
+              <button className="inline-flex items-center gap-1.5" onClick={() => setDetailsOpen((current) => !current)} aria-expanded={detailsOpen}>
+                <span className={detailsOpen ? "transition-transform" : "-rotate-90 transition-transform"}><FilledCaretDown /></span> Details
+              </button>
+              <div data-details-actions className="relative flex items-center gap-1 text-[#181818]" onClick={(event) => event.stopPropagation()}>
                 <button className="flex h-5 w-5 items-center justify-center rounded hover:bg-[#f5f5f5]" aria-label="Add detail" onClick={() => { setDetailDraft(""); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}><Plus size={12} strokeWidth={2} /></button>
                 <button className="flex h-5 w-5 items-center justify-center rounded hover:bg-[#f5f5f5]" aria-label="Details settings" onClick={() => setDetailsMenuOpen((current) => !current)}><Settings size={12} strokeWidth={2} /></button>
                 {detailsMenuOpen ? <div className="absolute right-2 top-8 z-50 grid w-28 rounded border border-[#e8e8e8] bg-white p-1 text-[10px] shadow-lg"><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={() => { setDetailDraft("Status"); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}>Add status row</button><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={() => { setDetailDraft("Custom detail"); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}>Custom field</button></div> : null}
               </div>
-            </button>
+            </div>
             {detailsOpen ? <div className="grid gap-2.5 pt-3">
               <DetailRow label="Status" value={<span className="inline-flex items-center gap-1.5 text-[#f59e0b]"><span className="h-2 w-2 rounded-full bg-[#f59e0b]" /> Backlog</span>} />
               <DetailRow label="Priority" value={<div ref={priorityMenuRef} className="relative"><button className="inline-flex items-center gap-1 text-red-500" onClick={() => setPriorityOpen((current) => !current)}><PrioritySignal priority={task.priority} /> {taskPriorityLabel[task.priority]} <ChevronUp size={11} /></button>{priorityOpen ? <div className="absolute left-0 top-6 z-10 w-40 rounded-md border border-[#e8e8e8] bg-white p-2 shadow-lg"><div className="px-2 pb-2 text-[11px] text-[#777]">Priority</div><button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className="inline-flex items-center gap-1.5 text-zinc-500"><span className="inline-block h-[2px] w-[2px] rounded-full bg-zinc-500" /> <span>No Priority</span></span></button><button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className="inline-flex items-center gap-1.5 text-red-500"><PrioritySignal priority="HIGH" /> <span>Ultra</span></span></button><button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className="inline-flex items-center gap-1.5 text-red-500"><PrioritySignal priority="HIGH" /> <span>High</span></span></button><button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className="inline-flex items-center gap-1.5 text-orange-500"><PrioritySignal priority="MEDIUM" /> <span>Medium</span></span></button><button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-[#f5f5f5]" onClick={() => { setPriorityOpen(false); }}><span className="inline-flex items-center gap-1.5 text-zinc-400"><PrioritySignal priority="LOW" /> <span>Low</span></span></button></div> : null}</div>} />
@@ -1366,6 +1386,7 @@ function ProfileScreen({
   accent,
   setAccent,
   onThemeChange,
+  onLogout,
   onNavigate,
 }: {
   profile: { name: string; email: string; title: string; username: string };
@@ -1373,14 +1394,16 @@ function ProfileScreen({
   accent: Accent;
   setAccent: (accent: Accent) => void;
   onThemeChange: (theme: "light" | "dark") => void;
+  onLogout: () => void;
   onNavigate: (view: View) => void;
 }) {
   const [sidebarTab, setSidebarTab] = useState<"profile" | "theme" | "color">("profile");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-      <Card className="p-3">
-        <button className="flex items-center gap-2 rounded-xl px-2 py-2 text-sm text-[color:var(--text-muted)]" onClick={() => onNavigate("tasks")}>
+    <div className="grid gap-4 lg:grid-cols-[180px_minmax(0,1fr)] lg:items-start">
+      <aside className="min-h-[calc(100vh-86px)] rounded-none border-r border-[#ececec] bg-[#fafafa] px-3 py-3">
+        <button className="mt-4 flex items-center gap-2 rounded-xl px-2 py-2 text-sm text-[color:var(--text-muted)]" onClick={() => onNavigate("tasks")}>
           <ArrowLeft size={14} /> Back to app
         </button>
         <div className="mt-3 flex items-center gap-2 rounded-xl border border-[color:var(--border)] px-3 py-2 text-sm text-[color:var(--text-muted)]">
@@ -1391,9 +1414,9 @@ function ProfileScreen({
           <SidebarButton active={sidebarTab === "theme"} icon={SunMedium} label="Theme" onClick={() => setSidebarTab("theme")} />
           <SidebarButton active={sidebarTab === "color"} icon={Palette} label="Color" onClick={() => setSidebarTab("color")} />
         </div>
-      </Card>
+      </aside>
 
-      <div className="space-y-8">
+      <div className="mx-auto w-full max-w-[760px] space-y-8 px-4 pt-4 lg:px-0 lg:pt-12">
         <h2 className="text-2xl font-semibold">Profile</h2>
 
         <Card className="p-6">
@@ -1415,27 +1438,11 @@ function ProfileScreen({
         </Card>
 
         {sidebarTab === "theme" ? (
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold">Theme</h3>
-            <div className="mt-4 flex gap-3">
-              <button className="flex items-center gap-2 rounded-xl border border-[color:var(--border)] px-4 py-3" onClick={() => onThemeChange("light")}><SunMedium size={14} /> Light</button>
-              <button className="flex items-center gap-2 rounded-xl border border-[color:var(--border)] px-4 py-3" onClick={() => onThemeChange("dark")}><MoonStar size={14} /> Dark</button>
-            </div>
-          </Card>
+          <div className="hidden" aria-hidden="true" />
         ) : null}
 
         {sidebarTab === "color" ? (
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold">Color Mode</h3>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {accentOptions.map((option) => (
-                <button key={option.value} className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left ${accent === option.value ? "border-[color:var(--primary)] bg-[color:var(--primary-soft)]" : "border-[color:var(--border)]"}`} onClick={() => setAccent(option.value)}>
-                  <span className={`h-3.5 w-3.5 rounded-sm ${accentSwatches[option.value]}`} />
-                  <span>{option.label}</span>
-                </button>
-              ))}
-            </div>
-          </Card>
+          <div className="hidden" aria-hidden="true" />
         ) : null}
       </div>
     </div>
