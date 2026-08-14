@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   CalendarDays,
   Check,
+  Camera,
   ChevronDown,
   ChevronRight,
   ChevronLeft,
@@ -37,6 +38,7 @@ import {
   Tag,
   UserCircle2,
   UserPlus,
+  Upload,
 } from "lucide-react";
 import { createTask, deleteTask, guestLogin, getCurrentUser, listTasks, logout, updateTask } from "@/lib/api";
 import type { Task, TaskPriority, TaskStatus, User } from "@/lib/types";
@@ -63,6 +65,14 @@ type ProjectItem = {
   state: ProjectState;
   members: string[];
   labels: string[];
+};
+
+type ProfileState = {
+  name: string;
+  email: string;
+  title: string;
+  username: string;
+  photo: string | null;
 };
 
 const accentKey = "able-space.accent";
@@ -100,6 +110,12 @@ const projectPriorityTone = {
   Medium: "bg-orange-500/10 text-orange-700 dark:text-orange-300",
   Low: "bg-zinc-500/10 text-zinc-700 dark:text-zinc-300",
 } as const;
+
+function projectPriorityToTaskPriority(priority: ProjectItem["priority"]): TaskPriority {
+  if (priority === "High") return "HIGH";
+  if (priority === "Medium") return "MEDIUM";
+  return "LOW";
+}
 
 const avatarPalette = ["bg-rose-500", "bg-violet-500", "bg-cyan-500", "bg-amber-500", "bg-emerald-500", "bg-pink-500"];
 const accentSwatches: Record<Accent, string> = {
@@ -149,6 +165,7 @@ const profileDefaults = {
   email: "Guest account",
   title: "Guest",
   username: "guest",
+  photo: null,
 };
 
 export function AssessmentApp() {
@@ -170,9 +187,10 @@ export function AssessmentApp() {
   const [projects, setProjects] = useState<ProjectItem[]>(seedProjects);
   const [projectQuery, setProjectQuery] = useState("");
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<ProjectItem | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(seedProjects[0]?.id ?? null);
   const [accent, setAccent] = useState<Accent>("blue");
-  const [profile, setProfile] = useState(profileDefaults);
+  const [profile, setProfile] = useState<ProfileState>(profileDefaults);
   const [openMenu, setOpenMenu] = useState<"workspace" | "user" | null>(null);
   const [openSubMenu, setOpenSubMenu] = useState<"theme" | "color" | null>(null);
   const [settingsTab, setSettingsTab] = useState<"profile" | "theme" | "color">("profile");
@@ -287,12 +305,13 @@ export function AssessmentApp() {
     try {
       const response = await guestLogin();
       setUser(response.user);
-      setProfile({
-        name: response.user.name,
-        email: "Guest account",
-        title: "Guest",
-        username: "guest",
-      });
+        setProfile({
+          name: response.user.name,
+          email: "Guest account",
+          title: "Guest",
+          username: "guest",
+          photo: null,
+        });
       setView("tasks");
       await loadTasks();
     } catch (error) {
@@ -378,7 +397,11 @@ export function AssessmentApp() {
           <div className="relative">
             <button className="flex w-full items-center justify-between rounded-2xl px-2 py-2 text-left hover:bg-[color:var(--surface-2)]" onClick={() => setOpenMenu(openMenu === "user" ? null : "user")}>
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[color:var(--text)] text-xs font-semibold text-white">{profile.name.slice(0, 1)}</div>
+                {profile.photo ? (
+                  <img src={profile.photo} alt="Profile" className="h-8 w-8 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[color:var(--text)] text-xs font-semibold text-white">{profile.name.slice(0, 1)}</div>
+                )}
                 <div>
                   <p className="text-sm font-medium">{profile.name}</p>
                   <p className="text-xs text-[color:var(--text-muted)]">{profile.email}</p>
@@ -437,15 +460,22 @@ export function AssessmentApp() {
                 <div>
                   {view === "tasks" || view === "task-detail" ? (
                     <>
-                    <button className="flex h-7 w-7 items-center justify-center text-[#181818] hover:bg-[#f5f5f5]" onClick={() => setSidebarVisible((current) => !current)} aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}>
-                      <PanelLeft size={13} strokeWidth={1.8} />
-                    </button>
-                    <span className="h-3 w-px bg-[#d9d9d9]" aria-hidden="true" />
+                      <button className="flex h-7 w-7 items-center justify-center text-[#181818] hover:bg-[#f5f5f5]" onClick={() => setSidebarVisible((current) => !current)} aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}>
+                        <PanelLeft size={13} strokeWidth={1.8} />
+                      </button>
+                      <span className="h-3 w-px bg-[#d9d9d9]" aria-hidden="true" />
+                    </>
+                  ) : view === "projects" ? (
+                    <>
+                      <button className="flex h-7 w-7 items-center justify-center text-[#181818] hover:bg-[#f5f5f5]" onClick={() => setSidebarVisible((current) => !current)} aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}>
+                        <PanelLeft size={13} strokeWidth={1.8} />
+                      </button>
+                      <span className="h-3 w-px bg-[#d9d9d9]" aria-hidden="true" />
                     </>
                   ) : (
                     <>
                       <div className="text-xs uppercase tracking-[0.22em] text-[color:var(--text-muted)]">{view}</div>
-                      <h1 className="text-xl font-semibold sm:text-2xl">Projects</h1>
+                      <h1 className="text-xl font-semibold sm:text-2xl">Profile</h1>
                     </>
                   )}
                 </div>
@@ -453,7 +483,7 @@ export function AssessmentApp() {
               </header>
             ) : null}
 
-            <div className={view === "profile" ? "px-4 py-3" : "px-4 py-5"}>
+            <div className={view === "profile" ? "px-0 py-0" : "px-4 py-5"}>
               {view === "tasks" ? (
                 <TasksScreen
                   user={user}
@@ -485,7 +515,18 @@ export function AssessmentApp() {
                   projects={filteredProjects}
                   selectedProject={selectedProject}
                   setSelectedProjectId={setSelectedProjectId}
-                  onOpenAdd={() => setProjectDialogOpen(true)}
+                  onOpenAdd={() => {
+                    setEditingProject(null);
+                    setProjectDialogOpen(true);
+                  }}
+                  onEditProject={(project) => {
+                    setEditingProject(project);
+                    setProjectDialogOpen(true);
+                  }}
+                  onDeleteProject={(projectId) => {
+                    setProjects((current) => current.filter((project) => project.id !== projectId));
+                    setSelectedProjectId((current) => (current === projectId ? null : current));
+                  }}
                 />
               ) : null}
 
@@ -517,7 +558,23 @@ export function AssessmentApp() {
         title={editingTask ? "Edit task" : "Create task"}
       />
 
-      {projectDialogOpen ? <ProjectModal onClose={() => setProjectDialogOpen(false)} onCreate={(project) => { setProjects((current) => [project, ...current]); setSelectedProjectId(project.id); setProjectDialogOpen(false); }} /> : null}
+      {projectDialogOpen ? (
+        <ProjectModal
+          initialProject={editingProject}
+          onClose={() => {
+            setProjectDialogOpen(false);
+            setEditingProject(null);
+          }}
+          onSubmit={(project) => {
+            setProjects((current) =>
+              editingProject ? current.map((item) => (item.id === project.id ? project : item)) : [project, ...current],
+            );
+            setSelectedProjectId(project.id);
+            setProjectDialogOpen(false);
+            setEditingProject(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -533,6 +590,15 @@ function PyramidMark() {
   );
 }
 
+function PencilIcon({ size = 14, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
+      <path d="M11.5 1.8 14.2 4.5l-8.7 8.7-3.4.7.7-3.4 8.7-8.7Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="m9.9 3.4 2.7 2.7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function TasksNavIcon({ size = 15, className }: { size?: number; className?: string }) {
   return <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}><rect x="2" y="2" width="4.5" height="4.5" rx="1" stroke="currentColor" strokeWidth="1.5" /><rect x="9.5" y="2" width="4.5" height="4.5" rx="1" stroke="currentColor" strokeWidth="1.5" /><rect x="2" y="9.5" width="4.5" height="4.5" rx="1" stroke="currentColor" strokeWidth="1.5" /><rect x="9.5" y="9.5" width="4.5" height="4.5" rx="1" stroke="currentColor" strokeWidth="1.5" /></svg>;
 }
@@ -544,10 +610,10 @@ function ProjectsNavIcon({ size = 15, className }: { size?: number; className?: 
 function SidebarButton({ active, icon: Icon, label, onClick }: { active?: boolean; icon: React.ComponentType<{ size?: number; className?: string }>; label: string; onClick: () => void; }) {
   return (
     <button
-      className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition ${active ? "bg-[color:var(--primary-soft)] text-[color:var(--primary)]" : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-2)] hover:text-[color:var(--text)]"}`}
+      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[15px] font-medium transition ${active ? "bg-[color:var(--primary-soft)] text-[color:var(--primary)]" : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-2)] hover:text-[color:var(--text)]"}`}
       onClick={onClick}
     >
-      <Icon size={15} />
+      <Icon size={16} />
       {label}
     </button>
   );
@@ -1291,6 +1357,8 @@ function ProjectsScreen({
   selectedProject,
   setSelectedProjectId,
   onOpenAdd,
+  onEditProject,
+  onDeleteProject,
 }: {
   query: string;
   setQuery: (value: string) => void;
@@ -1298,82 +1366,180 @@ function ProjectsScreen({
   selectedProject: ProjectItem | null;
   setSelectedProjectId: (id: string | null) => void;
   onOpenAdd: () => void;
+  onEditProject: (project: ProjectItem) => void;
+  onDeleteProject: (projectId: string) => void;
 }) {
   const [fieldsOpen, setFieldsOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [actionMenuProjectId, setActionMenuProjectId] = useState<string | null>(null);
+  const [actionMenuPosition, setActionMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<ProjectItem["priority"] | "All">("All");
+  const [visibleFields, setVisibleFields] = useState({
+    priority: true,
+    lead: true,
+    dueDate: true,
+    actions: true,
+  });
+
+  const visibleProjects = projects.filter((project) => priorityFilter === "All" || project.priority === priorityFilter);
+  const handleOpenAdd = () => {
+    setFieldsOpen(false);
+    setFilterOpen(false);
+    setActionMenuProjectId(null);
+    onOpenAdd();
+  };
+
+  const handleEditProject = (project: ProjectItem) => {
+    setFieldsOpen(false);
+    setFilterOpen(false);
+    setActionMenuProjectId(null);
+    setActionMenuPosition(null);
+    onEditProject(project);
+  };
+
+  const handleDeleteProject = (projectId: string) => {
+    setActionMenuProjectId(null);
+    setActionMenuPosition(null);
+    onDeleteProject(projectId);
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative w-full max-w-xs">
-          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--text-muted)]" />
-          <Input className="h-9 rounded-xl pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search projects" />
+    <div className="space-y-4 pt-0">
+      <div className="flex items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-semibold text-[color:var(--text)]">Projects</h2>
+          {selectedProject ? <div className="text-xs text-[color:var(--text-muted)]">Selected: {selectedProject.name}</div> : null}
         </div>
-        <button className="flex h-9 items-center gap-2 rounded-xl border border-[color:var(--border)] px-3 text-sm" onClick={() => setFieldsOpen((current) => !current)}>
-          <List size={14} /> Fields
-        </button>
-        <button className="flex h-9 items-center gap-2 rounded-xl border border-[color:var(--border)] px-3 text-sm"><Filter size={14} /> Filter</button>
-        <Button className="h-9 rounded-xl px-3" onClick={onOpenAdd}><Plus size={14} /> Add Project</Button>
-        {fieldsOpen ? (
-          <Card className="absolute z-20 mt-12 w-[220px] p-2 shadow-xl">
-            {[
-              "Priority",
-              "Members",
-              "Due Date",
-              "Labels",
-              "Status",
-              "Reporter",
-            ].map((field) => (
-              <div key={field} className="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-[color:var(--surface-2)]">
-                <span>{field}</span>
-                <span className="h-3 w-3 rounded-sm border border-[color:var(--border)] bg-[color:var(--surface)]" />
-              </div>
-            ))}
-          </Card>
-        ) : null}
+        <div className="relative flex items-center gap-2">
+          <button type="button" className="flex h-9 items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.03)]" onClick={() => setFieldsOpen((current) => !current)}>
+            <List size={14} /> Fields
+          </button>
+          <button type="button" className={`flex h-9 items-center gap-2 rounded-xl border bg-[color:var(--surface)] px-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.03)] ${priorityFilter === "All" ? "border-[color:var(--border)]" : "border-[color:var(--primary)] text-[color:var(--primary)]"}`} onClick={() => setFilterOpen((current) => !current)}>
+            <Filter size={14} /> {priorityFilter === "All" ? "Filter" : `Filter: ${priorityFilter}`}
+          </button>
+          <Button type="button" className="h-9 rounded-xl bg-[#181818] px-4 text-white hover:bg-[#111]" onClick={handleOpenAdd}><Plus size={14} /> Add Project</Button>
+
+          {fieldsOpen ? (
+            <Card className="absolute right-[118px] top-11 z-20 w-[220px] p-2 shadow-2xl">
+              {[
+                ["priority", "Priority"],
+                ["lead", "Lead"],
+                ["dueDate", "Due Date"],
+                ["actions", "Actions"],
+              ].map(([key, field]) => (
+                <label key={key} className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-[color:var(--surface-2)]">
+                  <span>{field}</span>
+                  <input
+                    checked={visibleFields[key as keyof typeof visibleFields]}
+                    className="h-4 w-4 accent-[#181818]"
+                    type="checkbox"
+                    onChange={() => setVisibleFields((current) => ({ ...current, [key]: !current[key as keyof typeof visibleFields] }))}
+                  />
+                </label>
+              ))}
+            </Card>
+          ) : null}
+
+          {filterOpen ? (
+            <Card className="absolute right-[218px] top-11 z-20 w-[180px] p-2 shadow-2xl">
+              {(["All", "High", "Medium", "Low"] as const).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-[color:var(--surface-2)] ${priorityFilter === item ? "bg-[color:var(--surface-2)]" : ""}`}
+                  onClick={() => {
+                    setPriorityFilter(item);
+                    setFilterOpen(false);
+                  }}
+                >
+                  <span>{item === "All" ? "All priorities" : item}</span>
+                  {priorityFilter === item ? <Check size={14} className="text-[color:var(--text)]" /> : null}
+                </button>
+              ))}
+            </Card>
+          ) : null}
+        </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <Card className="overflow-hidden">
+      <div className="grid gap-4">
+        <Card className="overflow-hidden rounded-3xl">
           <table className="min-w-full text-sm">
-            <thead className="bg-[color:var(--surface-2)] text-left text-xs text-[color:var(--text-muted)]">
+            <thead className="bg-[#f6f6f6] text-left text-xs text-[color:var(--text-muted)]">
               <tr>
                 <th className="px-4 py-3 font-medium">Projects</th>
-                <th className="px-4 py-3 font-medium">Priority</th>
-                <th className="px-4 py-3 font-medium">Lead</th>
-                <th className="px-4 py-3 font-medium">Due Date</th>
-                <th className="px-4 py-3 font-medium">Actions</th>
+                {visibleFields.priority ? <th className="px-4 py-3 font-medium">Priority</th> : null}
+                {visibleFields.lead ? <th className="px-4 py-3 font-medium">Lead</th> : null}
+                {visibleFields.dueDate ? <th className="px-4 py-3 font-medium">Due Date</th> : null}
+                {visibleFields.actions ? <th className="px-4 py-3 font-medium">Actions</th> : null}
               </tr>
             </thead>
             <tbody>
-              {projects.map((project) => (
-                <tr key={project.id} className="border-t border-[color:var(--border)] hover:bg-[color:var(--surface-2)]">
-                  <td className="px-4 py-3"><button className="text-left font-medium" onClick={() => setSelectedProjectId(project.id)}>{project.name}</button></td>
-                  <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs ${projectPriorityTone[project.priority]}`}>{project.priority}</span></td>
-                  <td className="px-4 py-3"><AvatarStack initials={project.lead} count={1} /></td>
-                  <td className="px-4 py-3">{project.dueDate}</td>
-                  <td className="px-4 py-3 text-[color:var(--text-muted)]">...</td>
+              {visibleProjects.map((project) => (
+                <tr key={project.id} className="border-t border-[color:var(--border)] last:border-b hover:bg-[#fafafa]">
+                  <td className={`px-4 py-3 ${selectedProject?.id === project.id ? "bg-[color:var(--surface-2)]" : ""}`}><button type="button" className="text-left font-medium" onClick={() => setSelectedProjectId(project.id)}>{project.name}</button></td>
+                  {visibleFields.priority ? (
+                    <td className={`px-4 py-3 ${selectedProject?.id === project.id ? "bg-[color:var(--surface-2)]" : ""}`}>
+                      <span className={`inline-flex items-center gap-1 ${project.priority === "High" ? "text-red-500" : project.priority === "Medium" ? "text-orange-500" : "text-zinc-400"}`}>
+                        <PrioritySignal priority={projectPriorityToTaskPriority(project.priority)} />
+                        {project.priority}
+                      </span>
+                    </td>
+                  ) : null}
+                  {visibleFields.lead ? <td className={`px-4 py-3 ${selectedProject?.id === project.id ? "bg-[color:var(--surface-2)]" : ""}`}><AvatarStack initials={project.lead} count={1} /></td> : null}
+                  {visibleFields.dueDate ? <td className={`px-4 py-3 ${selectedProject?.id === project.id ? "bg-[color:var(--surface-2)]" : ""}`}>{project.dueDate}</td> : null}
+                  {visibleFields.actions ? (
+                    <td className={`relative px-4 py-3 text-[color:var(--text-muted)] ${selectedProject?.id === project.id ? "bg-[color:var(--surface-2)]" : ""}`}>
+                      <button
+                        type="button"
+                        className="rounded-md p-2 hover:bg-[color:var(--surface-2)]"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (actionMenuProjectId === project.id) {
+                            setActionMenuProjectId(null);
+                            setActionMenuPosition(null);
+                            return;
+                          }
+
+                          const rect = event.currentTarget.getBoundingClientRect();
+                          const menuWidth = 176;
+                          const menuHeight = 88;
+                          const top = rect.bottom + menuHeight > window.innerHeight ? Math.max(8, rect.top - menuHeight - 8) : rect.bottom + 8;
+                          const left = Math.min(Math.max(8, rect.right - menuWidth), window.innerWidth - menuWidth - 8);
+
+                          setActionMenuProjectId(project.id);
+                          setActionMenuPosition({ top, left });
+                        }}
+                      >
+                        <MoreHorizontal size={14} />
+                      </button>
+                      {actionMenuProjectId === project.id && actionMenuPosition ? (
+                        <>
+                          <button
+                            aria-label="Close actions menu"
+                            className="fixed inset-0 z-20 cursor-default bg-transparent"
+                            type="button"
+                            onClick={() => {
+                              setActionMenuProjectId(null);
+                              setActionMenuPosition(null);
+                            }}
+                          />
+                          <Card
+                            className="fixed z-30 w-44 p-2 shadow-2xl"
+                            style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <button type="button" className="flex w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-[color:var(--surface-2)]" onClick={() => handleEditProject(project)}>Edit</button>
+                            <button type="button" className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-red-500 hover:bg-[color:var(--surface-2)]" onClick={() => handleDeleteProject(project.id)}>Delete</button>
+                          </Card>
+                        </>
+                      ) : null}
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
           </table>
-          <button className="border-t border-[color:var(--border)] px-4 py-3 text-left text-sm text-[color:var(--text-muted)]">+ Add Project</button>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--text-muted)]">Details</p>
-              <h3 className="mt-1 text-lg font-semibold">{selectedProject?.name ?? "Project details"}</h3>
-            </div>
-            <button className="rounded-full border border-[color:var(--border)] p-2"><MoreHorizontal size={14} /></button>
-          </div>
-          <div className="mt-4 grid gap-3 text-sm">
-            <RowDetail label="Priority" value={selectedProject?.priority ?? "--"} />
-            <RowDetail label="Lead" value={selectedProject?.lead ?? "--"} />
-            <RowDetail label="State" value={selectedProject?.state ?? "--"} />
-            <RowDetail label="Due Date" value={selectedProject?.dueDate ?? "--"} />
-            <RowDetail label="Labels" value={selectedProject?.labels.join(", ") ?? "--"} />
-          </div>
+          <Button type="button" variant="ghost" className="w-full justify-start rounded-none border-t border-[color:var(--border)] px-4 py-3 text-sm text-[color:var(--text-muted)] hover:bg-[#fafafa]" onClick={handleOpenAdd}>+ Add Project</Button>
         </Card>
       </div>
     </div>
@@ -1389,8 +1555,8 @@ function ProfileScreen({
   onLogout,
   onNavigate,
 }: {
-  profile: { name: string; email: string; title: string; username: string };
-  setProfile: (value: { name: string; email: string; title: string; username: string }) => void;
+  profile: ProfileState;
+  setProfile: React.Dispatch<React.SetStateAction<ProfileState>>;
   accent: Accent;
   setAccent: (accent: Accent) => void;
   onThemeChange: (theme: "light" | "dark") => void;
@@ -1398,52 +1564,145 @@ function ProfileScreen({
   onNavigate: (view: View) => void;
 }) {
   const [sidebarTab, setSidebarTab] = useState<"profile" | "theme" | "color">("profile");
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [openFlyout, setOpenFlyout] = useState<"theme" | "color" | null>(null);
+  const [emailEditing, setEmailEditing] = useState(false);
+  const emailInputRef = useRef<HTMLInputElement | null>(null);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!openFlyout) return;
+
+    const handleClick = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+      if (event.target.closest("[data-profile-sidebar]")) return;
+      setOpenFlyout(null);
+    };
+
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
+  }, [openFlyout]);
+
+  useEffect(() => {
+    if (emailEditing) emailInputRef.current?.focus();
+  }, [emailEditing]);
+
+  useEffect(() => {
+    return () => {
+      if (profile.photo) URL.revokeObjectURL(profile.photo);
+    };
+  }, [profile.photo]);
+
+  function handlePhotoPick(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setProfile((current) => {
+      if (current.photo) URL.revokeObjectURL(current.photo);
+      return { ...current, photo: URL.createObjectURL(file) };
+    });
+    event.target.value = "";
+  }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[180px_minmax(0,1fr)] lg:items-start">
-      <aside className="min-h-[calc(100vh-86px)] rounded-none border-r border-[#ececec] bg-[#fafafa] px-3 py-3">
-        <button className="mt-4 flex items-center gap-2 rounded-xl px-2 py-2 text-sm text-[color:var(--text-muted)]" onClick={() => onNavigate("tasks")}>
+    <div className="grid gap-0 lg:grid-cols-[264px_minmax(0,1fr)] lg:items-stretch">
+      <aside data-profile-sidebar className="relative min-h-screen rounded-none border-r border-[#ececec] bg-[#fafafa] px-3 py-3">
+        <button className="mt-0 flex items-center gap-2 rounded-xl px-2 py-2 text-sm text-[color:var(--text-muted)]" onClick={() => onNavigate("tasks")}>
           <ArrowLeft size={14} /> Back to app
         </button>
-        <div className="mt-3 flex items-center gap-2 rounded-xl border border-[color:var(--border)] px-3 py-2 text-sm text-[color:var(--text-muted)]">
-          <Search size={13} /> Search
-        </div>
         <div className="mt-3 grid gap-1">
           <SidebarButton active={sidebarTab === "profile"} icon={UserCircle2} label="Profile" onClick={() => setSidebarTab("profile")} />
-          <SidebarButton active={sidebarTab === "theme"} icon={SunMedium} label="Theme" onClick={() => setSidebarTab("theme")} />
-          <SidebarButton active={sidebarTab === "color"} icon={Palette} label="Color" onClick={() => setSidebarTab("color")} />
+          <div className="relative">
+            <SidebarButton active={sidebarTab === "theme"} icon={SunMedium} label="Theme" onClick={() => { setSidebarTab("theme"); setOpenFlyout((current) => current === "theme" ? null : "theme"); }} />
+            {openFlyout === "theme" ? (
+              <div data-profile-sidebar className="absolute left-[calc(100%+16px)] top-0 z-50 w-[210px] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl">
+                <div className="px-3 py-2 text-sm text-[color:var(--text-muted)]">Theme</div>
+                <SubMenuItem icon={SunMedium} label="Light" selected onClick={() => { onThemeChange("light"); setOpenFlyout(null); }} />
+                <SubMenuItem icon={MoonStar} label="Dark" onClick={() => { onThemeChange("dark"); setOpenFlyout(null); }} />
+              </div>
+            ) : null}
+          </div>
+          <div className="relative">
+            <SidebarButton active={sidebarTab === "color"} icon={Palette} label="Color" onClick={() => { setSidebarTab("color"); setOpenFlyout((current) => current === "color" ? null : "color"); }} />
+            {openFlyout === "color" ? (
+              <div data-profile-sidebar className="absolute left-[calc(100%+16px)] top-0 z-50 w-[210px] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl">
+                <div className="px-3 py-2 text-sm text-[color:var(--text-muted)]">Color Mode</div>
+                {accentOptions.map((option) => (
+                  <SubMenuItem key={option.value} label={option.label} swatch={option.value} selected={accent === option.value} onClick={() => { setAccent(option.value); setOpenFlyout(null); }} />
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
       </aside>
 
-      <div className="mx-auto w-full max-w-[760px] space-y-8 px-4 pt-4 lg:px-0 lg:pt-12">
+      <div className="mx-auto w-full max-w-[760px] space-y-8 px-4 pt-0 lg:px-0 lg:pt-8">
         <h2 className="text-2xl font-semibold">Profile</h2>
 
         <Card className="p-6">
           <div className="grid gap-5">
-            <ProfileRow label="Profile picture" value={<div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-violet-500 text-white">D</div>} />
-            <ProfileRow label="Email" value={<div className="flex items-center gap-3"><span>{profile.email}</span><button className="rounded-full border border-[color:var(--border)] p-2 text-[color:var(--text-muted)]"><Settings2 size={14} /></button></div>} />
+            <ProfileRow
+              label="Profile picture"
+              value={
+                <div className="flex items-center gap-3">
+                  <button className="group relative overflow-hidden rounded-full" onClick={() => photoInputRef.current?.click()} aria-label="Change profile picture" type="button">
+                    {profile.photo ? (
+                      <img src={profile.photo} alt="Profile preview" className="h-11 w-11 rounded-full object-cover" />
+                    ) : (
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-violet-500 text-white">D</div>
+                    )}
+                    <span className="absolute inset-0 rounded-full bg-black/0 transition group-hover:bg-black/10" />
+                  </button>
+                  <button className="rounded-full bg-[color:var(--surface-2)] p-2 text-[color:var(--text)]" onClick={() => photoInputRef.current?.click()} type="button" aria-label="Upload profile picture">
+                    <Camera size={13} />
+                  </button>
+                </div>
+              }
+            />
+            <ProfileRow
+              label="Email"
+              value={
+                emailEditing ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      ref={emailInputRef}
+                      className="h-10 w-[250px] bg-[color:var(--surface-2)]"
+                      value={profile.email}
+                      onChange={(event) => setProfile({ ...profile, email: event.target.value })}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") setEmailEditing(false);
+                        if (event.key === "Escape") setEmailEditing(false);
+                      }}
+                      onBlur={() => setEmailEditing(false)}
+                    />
+                    <button className="rounded-full bg-[color:var(--surface-2)] p-2 text-[color:var(--text)]" onClick={() => setEmailEditing(false)} aria-label="Save email">
+                      <Check size={13} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <span>{profile.email}</span>
+                    <button className="rounded-full bg-[color:var(--surface-2)] p-2 text-[color:var(--text)]" onClick={() => setEmailEditing(true)} aria-label="Edit email">
+                      <PencilIcon size={13} />
+                    </button>
+                  </div>
+                )
+              }
+            />
             <ProfileRow label="Full name" value={<Input className="h-10 max-w-[200px] bg-[color:var(--surface-2)]" value={profile.name} onChange={(event) => setProfile({ ...profile, name: event.target.value })} />} />
             <ProfileRow label="Title" sub="Your job title or role" value={<Input className="h-10 max-w-[200px] bg-[color:var(--surface-2)]" value={profile.title} onChange={(event) => setProfile({ ...profile, title: event.target.value })} />} />
             <ProfileRow label="Username" sub="One word, like a nickname or first name" value={<Input className="h-10 max-w-[200px] bg-[color:var(--surface-2)]" value={profile.username} onChange={(event) => setProfile({ ...profile, username: event.target.value })} />} />
           </div>
         </Card>
 
-        <Card className="p-6">
+        <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoPick} />
+
+        <div className="px-0 py-0">
           <h3 className="text-lg font-semibold">Workspace access</h3>
-          <div className="mt-4 flex items-center justify-between rounded-2xl border border-[color:var(--border)] p-4">
-            <span className="text-sm text-[color:var(--text-muted)]">Remove yourself from the workspace</span>
-            <Button variant="danger" size="sm" className="rounded-full">Leave Workspace</Button>
-          </div>
-        </Card>
-
-        {sidebarTab === "theme" ? (
-          <div className="hidden" aria-hidden="true" />
-        ) : null}
-
-        {sidebarTab === "color" ? (
-          <div className="hidden" aria-hidden="true" />
-        ) : null}
+                <div className="mt-4 flex items-center justify-between rounded-2xl border border-[color:var(--border)] p-4">
+                  <span className="text-sm text-[color:var(--text-muted)]">Remove yourself from the workspace</span>
+            <Button variant="danger" size="sm" className="rounded-full" onClick={onLogout}>Leave Workspace</Button>
+                </div>
+              </div>
       </div>
     </div>
   );
@@ -1485,8 +1744,37 @@ function AvatarStack({ count = 3, initials }: { count?: number; initials?: strin
   );
 }
 
-function ProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate: (project: ProjectItem) => void; }) {
-  const [form, setForm] = useState({ name: "", priority: "Medium" as ProjectItem["priority"], lead: "", dueDate: "" });
+function parseProjectDate(value: string) {
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  const parts = value.split(" ");
+  if (parts.length !== 3) return "";
+
+  const [day, month, year] = parts;
+  const monthIndex = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].indexOf(month);
+  if (monthIndex < 0) return "";
+
+  return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function ProjectModal({
+  initialProject,
+  onClose,
+  onSubmit,
+}: {
+  initialProject: ProjectItem | null;
+  onClose: () => void;
+  onSubmit: (project: ProjectItem) => void;
+}) {
+  const [form, setForm] = useState({
+    name: initialProject?.name ?? "",
+    priority: initialProject?.priority ?? ("Medium" as ProjectItem["priority"]),
+    lead: initialProject?.lead ?? "",
+    dueDate: initialProject ? parseProjectDate(initialProject.dueDate) : "",
+  });
 
   function formatDueDate(value: string) {
     if (!value) return "--";
@@ -1498,7 +1786,7 @@ function ProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate: (p
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div className="w-full max-w-lg" onClick={(event) => event.stopPropagation()}>
         <Card className="p-5">
-        <h3 className="text-lg font-semibold">Create project</h3>
+        <h3 className="text-lg font-semibold">{initialProject ? "Edit project" : "Create project"}</h3>
         <div className="mt-4 grid gap-3">
           <Input placeholder="Project name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
           <Input placeholder="Lead initials" value={form.lead} onChange={(event) => setForm({ ...form, lead: event.target.value })} />
@@ -1510,7 +1798,7 @@ function ProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate: (p
           <Input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button disabled={!form.name.trim()} onClick={() => onCreate({ id: `proj-${Date.now()}`, name: form.name, priority: form.priority, lead: form.lead || "ME", dueDate: formatDueDate(form.dueDate), state: "Backlog", members: [form.lead || "M"], labels: ["Planning"] })}>Create</Button>
+            <Button disabled={!form.name.trim()} onClick={() => onSubmit({ id: initialProject?.id ?? `proj-${Date.now()}`, name: form.name, priority: form.priority, lead: form.lead || "ME", dueDate: formatDueDate(form.dueDate), state: initialProject?.state ?? "Backlog", members: initialProject?.members ?? [form.lead || "M"], labels: initialProject?.labels ?? ["Planning"] })}>{initialProject ? "Save" : "Create"}</Button>
           </div>
         </div>
         </Card>
