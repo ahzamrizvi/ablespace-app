@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pyramid Workspace Assessment",
+  title: "Pyramid workspace",
   description: "Figma-inspired multi-screen task management workspace for the assessment.",
 };
 

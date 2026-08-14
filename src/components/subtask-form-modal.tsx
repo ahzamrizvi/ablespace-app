@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { DatePickerField } from "./date-picker-field";
 import type { TaskPriority } from "@/lib/types";
 
 export type SubtaskFormValue = {
@@ -100,7 +101,7 @@ export function SubtaskFormModal({ open, onClose, onSubmit, initialValue, title 
 
             <div className="grid gap-2">
               <label className="text-sm font-medium text-[color:var(--text)]">Due date</label>
-              <Input type="date" value={form.dueDate} onChange={(event) => setForm((current) => ({ ...current, dueDate: event.target.value }))} />
+              <DatePickerField value={form.dueDate} onChange={(value) => setForm((current) => ({ ...current, dueDate: value }))} />
             </div>
           </div>
 

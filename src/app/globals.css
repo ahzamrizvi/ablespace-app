@@ -64,6 +64,39 @@ html.dark {
   --border-soft: rgba(148, 163, 184, 0.1);
   --text: #e5e7eb;
   --text-muted: #94a3b8;
+  color-scheme: dark;
+}
+
+html.dark [class*="bg-white"] {
+  background-color: var(--surface) !important;
+}
+
+html.dark [class*="bg-[#fafafa]"] {
+  background-color: var(--surface-2) !important;
+}
+
+html.dark [class*="bg-[#f5f5f5]"] {
+  background-color: var(--surface-2) !important;
+}
+
+html.dark [class*="bg-[#f3f3f3]"] {
+  background-color: var(--surface-2) !important;
+}
+
+html.dark [class*="border-[#e8e8e8]"],
+html.dark [class*="border-[#ececec]"],
+html.dark [class*="border-[#e2e2e2]"],
+html.dark [class*="border-[#e1e1e1]"] {
+  border-color: var(--border) !important;
+}
+
+html.dark [class*="text-[#181818]"],
+html.dark [class*="text-[#222]"],
+html.dark [class*="text-[#333]"],
+html.dark [class*="text-[#444]"],
+html.dark [class*="text-[#555]"],
+html.dark [class*="text-[#777]"] {
+  color: var(--text) !important;
 }
 
 @theme inline {

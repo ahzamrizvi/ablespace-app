@@ -49,7 +49,9 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { TaskFormModal } from "./task-form-modal";
 import { SubtaskFormModal, type SubtaskFormValue } from "./subtask-form-modal";
+import { DatePickerField } from "./date-picker-field";
 import { useTheme } from "next-themes";
+import { fallbackDueDate } from "@/lib/utils";
 
 type View = "login" | "tasks" | "task-detail" | "projects" | "profile";
 type TaskMode = "board" | "list";
@@ -160,7 +162,7 @@ const seedProjects: ProjectItem[] = [
   },
 ];
 
-const profileDefaults = {
+const guestProfileDefaults = {
   name: "Guest User",
   email: "Guest account",
   title: "Guest",
@@ -171,6 +173,7 @@ const profileDefaults = {
 export function AssessmentApp() {
   const { setTheme } = useTheme();
   const [ready, setReady] = useState(false);
+  const [booting, setBooting] = useState(true);
   const [view, setView] = useState<View>("login");
   const [loadingAuth, setLoadingAuth] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -190,7 +193,7 @@ export function AssessmentApp() {
   const [editingProject, setEditingProject] = useState<ProjectItem | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(seedProjects[0]?.id ?? null);
   const [accent, setAccent] = useState<Accent>("blue");
-  const [profile, setProfile] = useState<ProfileState>(profileDefaults);
+  const [profile, setProfile] = useState<ProfileState>(guestProfileDefaults);
   const [openMenu, setOpenMenu] = useState<"workspace" | "user" | null>(null);
   const [openSubMenu, setOpenSubMenu] = useState<"theme" | "color" | null>(null);
   const [settingsTab, setSettingsTab] = useState<"profile" | "theme" | "color">("profile");
@@ -207,20 +210,34 @@ export function AssessmentApp() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.dataset.accent = accent;
-    window.localStorage.setItem(accentKey, accent);
-  }, [accent]);
-
-  useEffect(() => {
     if (!ready) return;
 
     let active = true;
 
     getCurrentUser()
-      .then((currentUser) => {
+      .then(async (currentUser) => {
         if (!active) return;
+
         if (!currentUser) {
+          if (window.localStorage.getItem("able-space.guest-session") === "true") {
+            const response = await guestLogin();
+            if (!active) return;
+            setUser(response.user);
+            setProfile(guestProfileDefaults);
+            setView("tasks");
+            await loadTasks();
+            return;
+          }
+
           clearSession();
+          return;
+        }
+
+        if (currentUser.isGuest) {
+          setUser(currentUser);
+          setProfile(guestProfileDefaults);
+          setView("tasks");
+          await loadTasks();
           return;
         }
 
@@ -228,9 +245,9 @@ export function AssessmentApp() {
         setProfile((current) => ({
           ...current,
           name: currentUser.name,
-          email: currentUser.isGuest ? "Guest account" : currentUser.email ?? "",
-          title: currentUser.isGuest ? "Guest" : current.title,
-          username: currentUser.isGuest ? "guest" : current.username,
+          email: currentUser.email ?? "",
+          title: current.title,
+          username: current.username,
         }));
         setUser(currentUser);
         setView("tasks");
@@ -238,12 +255,20 @@ export function AssessmentApp() {
       })
       .catch(() => {
         if (active) clearSession();
+      })
+      .finally(() => {
+        if (active) setBooting(false);
       });
 
     return () => {
       active = false;
     };
   }, [ready]);
+
+  useEffect(() => {
+    document.documentElement.dataset.accent = accent;
+    window.localStorage.setItem(accentKey, accent);
+  }, [accent]);
 
   useEffect(() => {
     if (view !== "tasks") return;
@@ -275,6 +300,10 @@ export function AssessmentApp() {
     [projectQuery, projects],
   );
 
+  const displayProfile = user?.isGuest
+    ? { ...guestProfileDefaults, photo: profile.photo }
+    : profile;
+
   async function loadTasks() {
     try {
       const response = await listTasks({
@@ -298,6 +327,7 @@ export function AssessmentApp() {
     setTaskError(null);
     setOpenMenu(null);
     setOpenSubMenu(null);
+    window.localStorage.removeItem("able-space.guest-session");
   }
 
   async function handleGuestLogin() {
@@ -305,13 +335,8 @@ export function AssessmentApp() {
     try {
       const response = await guestLogin();
       setUser(response.user);
-        setProfile({
-          name: response.user.name,
-          email: "Guest account",
-          title: "Guest",
-          username: "guest",
-          photo: null,
-        });
+      setProfile(guestProfileDefaults);
+      window.localStorage.setItem("able-space.guest-session", "true");
       setView("tasks");
       await loadTasks();
     } catch (error) {
@@ -356,16 +381,36 @@ export function AssessmentApp() {
     }
   }
 
-  if (!ready || view === "login") {
+  function handleToggleUserMenu() {
+    setOpenMenu((current) => (current === "user" ? null : "user"));
+    setOpenSubMenu(null);
+  }
+
+  function handleToggleWorkspaceMenu() {
+    setOpenMenu((current) => (current === "workspace" ? null : "workspace"));
+    setOpenSubMenu(null);
+  }
+
+  if (!ready || booting) {
     return (
-      <div className="min-h-screen bg-white px-4 text-[#181818]">
+      <div className="min-h-screen bg-[color:var(--background)] px-4 text-[color:var(--text)]">
+        <main className="mx-auto flex min-h-screen w-full max-w-[384px] items-center justify-center text-sm text-[color:var(--text-muted)]">
+          Loading...
+        </main>
+      </div>
+    );
+  }
+
+  if (view === "login") {
+    return (
+      <div className="min-h-screen bg-[color:var(--background)] px-4 text-[color:var(--text)]">
         <main className="mx-auto flex min-h-screen w-full max-w-[384px] flex-col items-center justify-center">
           <div className="mb-6 flex items-center gap-2 text-[15px] font-semibold tracking-[-0.02em]">
             <PyramidMark />
-            Pyramid
+            Pyramid workspace
           </div>
 
-          <Card className="w-full rounded-[25px] border-[#e2e2e2] bg-white px-6 py-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <Card className="w-full rounded-[25px] border-[color:var(--border)] bg-[color:var(--surface)] px-6 py-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="text-center">
               <h1 className="text-[21px] font-semibold leading-7 tracking-[-0.03em]">Let&apos;s get back on track</h1>
               <p className="mt-1 text-sm leading-5 text-[#777]">Enter your email below to login to your account.</p>
@@ -375,14 +420,14 @@ export function AssessmentApp() {
               <Button className="h-9 w-full rounded-full bg-[#181818] text-sm font-medium text-white hover:bg-[#181818]/90" onClick={handleGuestLogin} disabled={loadingAuth}>
                 {loadingAuth ? "Creating guest session..." : "Continue as Guest"}
               </Button>
-              <Button variant="secondary" className="h-9 w-full rounded-full border border-[#e1e1e1] bg-white text-sm font-medium text-[#181818] hover:bg-[#fafafa]" onClick={() => undefined}>
+              <Button variant="secondary" className="h-9 w-full rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-sm font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-2)]" onClick={() => undefined}>
                 <span className="text-base font-bold leading-none">G</span>
                 Login with Google
               </Button>
             </div>
           </Card>
 
-          <p className="mt-6 max-w-[230px] text-center text-xs leading-4 text-[#777]">
+          <p className="mt-6 max-w-[230px] text-center text-xs leading-4 text-[color:var(--text-muted)]">
             By clicking continue, you agree to our <span className="underline">Terms of Service</span> and <span className="underline">Privacy Policy</span>
           </p>
         </main>
@@ -391,51 +436,68 @@ export function AssessmentApp() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-[#181818]">
+    <div className="min-h-screen bg-[color:var(--background)] text-[color:var(--text)]">
       <div className="flex min-h-screen overflow-hidden">
-        <aside className={`${view === "profile" ? "hidden" : sidebarVisible ? "lg:flex" : "lg:hidden"} hidden w-[264px] shrink-0 border-r border-[#ececec] bg-[#fafafa] px-3 py-3 lg:flex-col`}>
+        <aside className={`${view === "profile" ? "hidden" : sidebarVisible ? "lg:flex" : "lg:hidden"} hidden w-[264px] shrink-0 border-r border-[color:var(--border)] bg-[color:var(--surface-2)] px-3 py-3 lg:flex-col`}>
           <div className="relative">
-            <button className="flex w-full items-center justify-between rounded-2xl px-2 py-2 text-left hover:bg-[color:var(--surface-2)]" onClick={() => setOpenMenu(openMenu === "user" ? null : "user")}>
+            <button
+              type="button"
+              className="flex w-full cursor-pointer items-center justify-between rounded-2xl px-2 py-2 text-left hover:bg-[color:var(--surface-2)]"
+              aria-expanded={openMenu === "user"}
+              onMouseDown={(event) => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+                event.stopPropagation();
+                handleToggleUserMenu();
+              }}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handleToggleUserMenu();
+                }
+              }}
+            >
               <div className="flex items-center gap-2">
-                {profile.photo ? (
-                  <img src={profile.photo} alt="Profile" className="h-8 w-8 rounded-full object-cover" />
+                {displayProfile.photo ? (
+                  <img src={displayProfile.photo} alt="Profile" className="h-8 w-8 rounded-full object-cover" />
                 ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[color:var(--text)] text-xs font-semibold text-white">{profile.name.slice(0, 1)}</div>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[color:var(--primary)] text-xs font-semibold text-white">{displayProfile.name.slice(0, 1)}</div>
                 )}
                 <div>
-                  <p className="text-sm font-medium">{profile.name}</p>
-                  <p className="text-xs text-[color:var(--text-muted)]">{profile.email}</p>
+                  <p className="text-sm font-medium">{displayProfile.name}</p>
+                  <p className="text-xs text-[color:var(--text-muted)]">{displayProfile.email}</p>
                 </div>
               </div>
               <ChevronDown size={14} className="text-[color:var(--text-muted)]" />
             </button>
-            {openMenu === "user" ? <UserMenu accent={accent} onAccentChange={setAccent} onThemeChange={handleToggleTheme} onNavigateProfile={() => setView("profile")} onLogout={handleLogout} onClose={() => setOpenMenu(null)} /> : null}
+            {openMenu === "user" ? <UserMenu profile={displayProfile} accent={accent} onAccentChange={setAccent} onThemeChange={handleToggleTheme} onNavigateProfile={() => setView("profile")} onLogout={handleLogout} onClose={() => setOpenMenu(null)} /> : null}
           </div>
 
           <div className="mt-4 rounded-2xl px-2 py-2">
-            <button className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-sm text-[color:var(--text-muted)] hover:bg-[color:var(--surface-2)] hover:text-[color:var(--text)]" onClick={() => setOpenMenu(openMenu === "workspace" ? null : "workspace") }>
+            <button
+              type="button"
+              className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-sm text-[color:var(--text-muted)] hover:bg-[color:var(--surface-2)] hover:text-[color:var(--text)]"
+              aria-expanded={openMenu === "workspace"}
+              onClick={handleToggleWorkspaceMenu}
+            >
               <span>Workspace</span>
-              <ChevronDown size={14} />
+              <ChevronDown size={14} className={`transition-transform ${openMenu === "workspace" ? "rotate-180" : ""}`} />
             </button>
             {openMenu === "workspace" ? (
               <div className="mt-1 grid gap-1 pl-2">
                 <SidebarButton active={view === "tasks"} icon={TasksNavIcon} label="Tasks" onClick={() => setView("tasks")} />
                 <SidebarButton active={view === "projects"} icon={ProjectsNavIcon} label="Projects" onClick={() => setView("projects")} />
               </div>
-            ) : (
-              <div className="mt-1 grid gap-1 pl-2">
-                <SidebarButton active={view === "tasks"} icon={TasksNavIcon} label="Tasks" onClick={() => setView("tasks")} />
-                <SidebarButton active={view === "projects"} icon={ProjectsNavIcon} label="Projects" onClick={() => setView("projects")} />
-              </div>
-            )}
+            ) : null}
           </div>
 
           <div className="mt-auto hidden rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-2)] p-3">
             <button className="flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left hover:bg-[color:var(--surface)]" onClick={() => setView("profile") }>
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--primary)] text-white">G</div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--primary)] text-white">{displayProfile.name.slice(0, 1)}</div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{profile.name}</p>
-                <p className="truncate text-xs text-[color:var(--text-muted)]">{profile.email}</p>
+                <p className="truncate text-sm font-medium">{displayProfile.name}</p>
+                <p className="truncate text-xs text-[color:var(--text-muted)]">{displayProfile.email}</p>
               </div>
             </button>
             <div className="mt-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
@@ -449,10 +511,10 @@ export function AssessmentApp() {
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 overflow-auto bg-white">
+        <main className="min-w-0 flex-1 overflow-auto bg-[color:var(--background)]">
           <div>
             {view !== "profile" ? (
-              <header className="flex h-[42px] items-center justify-between gap-3 border-b border-[#eeeeee] px-3">
+              <header className="flex h-[42px] items-center justify-between gap-3 border-b border-[color:var(--border)] px-3">
                 <div className="flex items-center gap-3">
                   <button className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--border)] lg:hidden" onClick={() => setOpenMenu(openMenu === "workspace" ? null : "workspace") }>
                     <Menu size={18} />
@@ -460,14 +522,14 @@ export function AssessmentApp() {
                 <div>
                   {view === "tasks" || view === "task-detail" ? (
                     <>
-                      <button className="flex h-7 w-7 items-center justify-center text-[#181818] hover:bg-[#f5f5f5]" onClick={() => setSidebarVisible((current) => !current)} aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}>
+                      <button className="flex h-7 w-7 items-center justify-center text-[color:var(--text)] hover:bg-[color:var(--surface-2)]" onClick={() => setSidebarVisible((current) => !current)} aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}>
                         <PanelLeft size={13} strokeWidth={1.8} />
                       </button>
                       <span className="h-3 w-px bg-[#d9d9d9]" aria-hidden="true" />
                     </>
                   ) : view === "projects" ? (
                     <>
-                      <button className="flex h-7 w-7 items-center justify-center text-[#181818] hover:bg-[#f5f5f5]" onClick={() => setSidebarVisible((current) => !current)} aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}>
+                      <button className="flex h-7 w-7 items-center justify-center text-[color:var(--text)] hover:bg-[color:var(--surface-2)]" onClick={() => setSidebarVisible((current) => !current)} aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}>
                         <PanelLeft size={13} strokeWidth={1.8} />
                       </button>
                       <span className="h-3 w-px bg-[#d9d9d9]" aria-hidden="true" />
@@ -619,8 +681,10 @@ function SidebarButton({ active, icon: Icon, label, onClick }: { active?: boolea
   );
 }
 
-function UserMenu({ accent, onAccentChange, onThemeChange, onNavigateProfile, onLogout, onClose }: { accent: Accent; onAccentChange: (accent: Accent) => void; onThemeChange: (theme: "light" | "dark") => void; onNavigateProfile: () => void; onLogout: () => void; onClose: () => void; }) {
+function UserMenu({ profile, accent, onAccentChange, onThemeChange, onNavigateProfile, onLogout, onClose }: { profile: ProfileState; accent: Accent; onAccentChange: (accent: Accent) => void; onThemeChange: (theme: "light" | "dark") => void; onNavigateProfile: () => void; onLogout: () => void; onClose: () => void; }) {
+  const { resolvedTheme } = useTheme();
   const [submenu, setSubmenu] = useState<"theme" | "color" | null>(null);
+  const currentTheme = resolvedTheme ?? "light";
 
   useEffect(() => {
     const handle = (event: MouseEvent) => {
@@ -634,10 +698,14 @@ function UserMenu({ accent, onAccentChange, onThemeChange, onNavigateProfile, on
   return (
     <div data-user-menu className="absolute left-0 top-[calc(100%+10px)] z-50 flex items-start gap-2">
       <div className="w-[246px] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl">
-        <div className="border-b border-[color:var(--border)] px-3 py-4 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[color:var(--surface-2)] text-lg font-semibold text-[color:var(--text)]">G</div>
-          <div className="mt-3 font-semibold leading-5 text-[color:var(--text)]">Guest User</div>
-          <div className="text-sm text-[color:var(--text-muted)]">Guest account</div>
+          <div className="border-b border-[color:var(--border)] px-3 py-4 text-center">
+          {profile.photo ? (
+            <img src={profile.photo} alt="Profile" className="mx-auto h-14 w-14 rounded-full object-cover" />
+          ) : (
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[color:var(--primary)] text-lg font-semibold text-white">{profile.name.slice(0, 1)}</div>
+          )}
+          <div className="mt-3 font-semibold leading-5 text-[color:var(--text)]">{profile.name}</div>
+          <div className="text-sm text-[color:var(--text-muted)]">{profile.email}</div>
         </div>
 
         <div className="w-full p-2">
@@ -646,8 +714,8 @@ function UserMenu({ accent, onAccentChange, onThemeChange, onNavigateProfile, on
             {submenu === "theme" ? (
               <div className="absolute left-[calc(100%+16px)] top-0 w-[210px] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl">
                 <div className="px-3 py-2 text-sm text-[color:var(--text-muted)]">Theme</div>
-                <SubMenuItem icon={SunMedium} label="Light" selected onClick={() => onThemeChange("light")} />
-                <SubMenuItem icon={MoonStar} label="Dark" onClick={() => onThemeChange("dark")} />
+                <SubMenuItem icon={SunMedium} label="Light" selected={currentTheme === "light"} onClick={() => onThemeChange("light")} />
+                <SubMenuItem icon={MoonStar} label="Dark" selected={currentTheme === "dark"} onClick={() => onThemeChange("dark")} />
               </div>
             ) : null}
           </div>
@@ -688,7 +756,7 @@ function SubMenuItem({ icon: Icon, label, onClick, swatch, selected }: { icon?: 
     <button className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-[color:var(--surface-2)] ${selected ? "bg-[color:var(--surface-2)]" : ""}`} onClick={onClick}>
       {swatch ? <span className={`h-3.5 w-3.5 rounded-sm ${accentSwatches[swatch]}`} /> : Icon ? <Icon size={13} /> : null}
       <span className="flex-1 text-left">{label}</span>
-      {selected ? <Check size={14} className="text-black" /> : null}
+      {selected ? <Check size={14} className="text-[color:var(--text)]" /> : null}
     </button>
   );
 }
@@ -740,12 +808,70 @@ function TasksScreen({
   const [collapsedSections, setCollapsedSections] = useState<Partial<Record<TaskStatus, boolean>>>({});
   const [columnOrder, setColumnOrder] = useState<TaskStatus[]>(["TODO", "IN_PROGRESS", "DONE", "ON_HOLD"]);
   const [draggedColumn, setDraggedColumn] = useState<TaskStatus | null>(null);
+  const [columnDropTarget, setColumnDropTarget] = useState<{ key: TaskStatus; position: "before" | "after" } | null>(null);
   const grouped = useMemo(() => ({
     TODO: tasks.filter((task) => task.status === "TODO"),
     IN_PROGRESS: tasks.filter((task) => task.status === "IN_PROGRESS"),
     DONE: tasks.filter((task) => task.status === "DONE"),
     ON_HOLD: tasks.filter((task) => task.status === "ON_HOLD"),
   }), [tasks]);
+
+  function handleColumnDragStart(event: React.DragEvent<HTMLElement>, key: TaskStatus, label: string) {
+    setDraggedColumn(key);
+
+    const column = event.currentTarget.closest("[data-board-column]");
+    const ghost = column ? column.cloneNode(true) as HTMLElement : document.createElement("div");
+
+    if (!column) {
+      ghost.style.width = "220px";
+      ghost.style.padding = "12px 14px";
+      ghost.style.borderRadius = "16px";
+      ghost.style.border = "1px solid #d8d8d8";
+      ghost.style.background = "rgba(255,255,255,0.95)";
+      ghost.style.boxShadow = "0 14px 40px rgba(15,23,42,0.18)";
+      ghost.style.fontSize = "14px";
+      ghost.style.fontWeight = "600";
+      ghost.style.color = "#181818";
+      ghost.textContent = label;
+    }
+
+    ghost.style.position = "fixed";
+    ghost.style.top = "-1000px";
+    ghost.style.left = "-1000px";
+    ghost.style.pointerEvents = "none";
+    ghost.style.opacity = "0.98";
+    ghost.style.transform = "scale(0.98)";
+
+    document.body.appendChild(ghost);
+    event.dataTransfer.setDragImage(ghost, 140, 24);
+    event.dataTransfer.effectAllowed = "move";
+    window.setTimeout(() => ghost.remove(), 0);
+  }
+
+  function handleColumnDragOver(event: React.DragEvent<HTMLElement>, key: TaskStatus) {
+    event.preventDefault();
+
+    if (!draggedColumn || draggedColumn === key) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const position = event.clientX < rect.left + rect.width / 2 ? "before" : "after";
+    setColumnDropTarget({ key, position });
+  }
+
+  function handleColumnDrop(key: TaskStatus) {
+    if (!draggedColumn || draggedColumn === key) return;
+
+    setColumnOrder((current) => {
+      const next = current.filter((item) => item !== draggedColumn);
+      const targetIndex = next.indexOf(key);
+      const insertIndex = targetIndex + (columnDropTarget?.key === key && columnDropTarget.position === "after" ? 1 : 0);
+      next.splice(insertIndex, 0, draggedColumn);
+      return next;
+    });
+
+    setDraggedColumn(null);
+    setColumnDropTarget(null);
+  }
 
   useEffect(() => {
     setColumnView(mode);
@@ -783,12 +909,12 @@ function TasksScreen({
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-xs font-semibold tracking-tight">Tasks</h2>
           <div className="flex items-center gap-2">
-            <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] bg-white text-[#222]" onClick={() => setSearchOpen((current) => !current)} aria-label="Search tasks">
+            <button className="flex h-7 w-7 items-center justify-center rounded border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)]" onClick={() => setSearchOpen((current) => !current)} aria-label="Search tasks">
               <Search size={12} />
             </button>
-            {searchOpen ? <div className="relative"><Search size={12} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[#555]" /><Input className="h-7 w-[260px] rounded border-[#e8e8e8] py-0 pl-7 pr-2 text-xs" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search tasks" autoFocus /></div> : null}
+            {searchOpen ? <div className="relative"><Search size={12} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[color:var(--text-muted)]" /><Input className="h-7 w-[260px] rounded border-[color:var(--border)] py-0 pl-7 pr-2 text-xs" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search tasks" autoFocus /></div> : null}
             <div ref={fieldsMenuRef} className="relative">
-              <button className="flex h-7 items-center gap-1.5 rounded border border-[#e8e8e8] bg-white px-2 text-[10px]" onClick={() => setFieldsOpen((current) => !current)}>
+              <button className="flex h-7 items-center gap-1.5 rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-[10px]" onClick={() => setFieldsOpen((current) => !current)}>
                 <Columns3 size={11} /> Fields
               </button>
               {fieldsOpen ? (
@@ -815,7 +941,7 @@ function TasksScreen({
                 </Card>
               ) : null}
             </div>
-            <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] bg-white text-[#222]" onClick={() => setFilterOpen((current) => !current)} aria-label="Filter tasks">
+            <button className="flex h-7 w-7 items-center justify-center rounded border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)]" onClick={() => setFilterOpen((current) => !current)} aria-label="Filter tasks">
               <Filter size={12} />
             </button>
             <Button className="h-7 rounded bg-[#181818] px-2 text-[10px] text-white hover:opacity-95" onClick={() => onCreate()}><Plus size={11} /> Add Task</Button>
@@ -824,8 +950,8 @@ function TasksScreen({
 
         {filterOpen ? (
           <div className="flex gap-2">
-            <select className="h-8 rounded border border-[#e8e8e8] px-2 text-xs" value={status} onChange={(event) => setStatus(event.target.value as TaskStatus | "")}><option value="">All statuses</option><option value="TODO">To Do</option><option value="IN_PROGRESS">Doing</option><option value="DONE">Completed</option><option value="ON_HOLD">On Hold</option></select>
-            <select className="h-8 rounded border border-[#e8e8e8] px-2 text-xs" value={priority} onChange={(event) => setPriority(event.target.value as TaskPriority | "")}><option value="">All priorities</option><option value="HIGH">High</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option></select>
+            <select className="h-8 rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs" value={status} onChange={(event) => setStatus(event.target.value as TaskStatus | "")}><option value="">All statuses</option><option value="TODO">To Do</option><option value="IN_PROGRESS">Doing</option><option value="DONE">Completed</option><option value="ON_HOLD">On Hold</option></select>
+            <select className="h-8 rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs" value={priority} onChange={(event) => setPriority(event.target.value as TaskPriority | "")}><option value="">All priorities</option><option value="HIGH">High</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option></select>
           </div>
         ) : null}
 
@@ -836,18 +962,21 @@ function TasksScreen({
             <div className="flex min-w-max gap-3">
             {columnOrder.map((key) => {
               const label = taskStatusLabels[key];
-              return <Card key={key} className={`w-[289px] self-start rounded-[18px] border bg-[#f5f5f5] p-2 shadow-none ${draggedColumn === key ? "border-[#181818] opacity-60" : "border-[#e8e8e8]"}`} onDragOver={(event) => event.preventDefault()} onDrop={() => {
-                if (!draggedColumn || draggedColumn === key) return;
-                setColumnOrder((current) => {
-                  const next = current.filter((item) => item !== draggedColumn);
-                  next.splice(next.indexOf(key), 0, draggedColumn);
-                  return next;
-                });
-                setDraggedColumn(null);
-              }}>
+              return <Card key={key} data-board-column className={`w-[289px] self-start rounded-[18px] border bg-[color:var(--surface-2)] p-2 shadow-none ${draggedColumn === key ? "border-[color:var(--text)] opacity-60 ring-2 ring-[color:var(--text)]/10" : columnDropTarget?.key === key ? columnDropTarget.position === "before" ? "border-l-4 border-l-[color:var(--text)] border-[color:var(--border)]" : "border-r-4 border-r-[color:var(--text)] border-[color:var(--border)]" : "border-[color:var(--border)]"}`} onDragOver={(event) => handleColumnDragOver(event, key)} onDragLeave={() => setColumnDropTarget((current) => current?.key === key ? null : current)} onDrop={() => handleColumnDrop(key)}>
                 <div className="mb-2 flex items-center justify-between px-1 py-1 text-sm font-medium">
                   <span className="flex items-center gap-2">
-                    <button draggable className="cursor-grab text-[10px] text-[color:var(--text-muted)] active:cursor-grabbing" onDragStart={() => setDraggedColumn(key)} onDragEnd={() => setDraggedColumn(null)} aria-label={`Drag ${label} column`}>⠿</button>
+                    <button
+                      draggable
+                      className="cursor-grab text-[10px] text-[color:var(--text-muted)] active:cursor-grabbing"
+                      onDragStart={(event) => handleColumnDragStart(event, key, label)}
+                      onDragEnd={() => {
+                        setDraggedColumn(null);
+                        setColumnDropTarget(null);
+                      }}
+                      aria-label={`Drag ${label} column`}
+                    >
+                      ⠿
+                    </button>
                     {label}
                   </span>
                   <div data-task-menu className="flex items-center gap-2 text-[color:var(--text-muted)]">
@@ -859,7 +988,7 @@ function TasksScreen({
                   {grouped[key as keyof typeof grouped].map((task) => (
                     <TaskBoardCard key={task.id} task={task} fields={visibleFields} menuOpen={cardMenuId === task.id} onClick={() => onOpenDetail(task)} onMenu={() => setCardMenuId(cardMenuId === task.id ? null : task.id)} onEdit={() => onEdit(task)} onDelete={() => onDelete(task.id)} />
                   ))}
-                  <button className="flex h-7 w-full items-center px-2 text-[10px] font-medium text-[#444] hover:text-[#181818]" onClick={() => onCreate(key as TaskStatus)}>+ Add Task</button>
+                  <button className="flex h-7 w-full items-center px-2 text-[10px] font-medium text-[color:var(--text-muted)] hover:text-[color:var(--text)]" onClick={() => onCreate(key as TaskStatus)}>+ Add Task</button>
                 </div>
               </Card>;
             })}
@@ -876,9 +1005,9 @@ function TasksScreen({
                 <div className="flex items-center justify-between px-0 py-1.5 text-xs font-medium">
                   <button className="flex items-center gap-1.5" onClick={() => setCollapsedSections((current) => ({ ...current, [key]: !current[key] }))}><ChevronDown size={12} className={collapsedSections[key] ? "-rotate-90" : ""} />{label}</button>
                 </div>
-                {!collapsedSections[key] ? <div className="overflow-hidden rounded-lg border border-[#e8e8e8]">
+                {!collapsedSections[key] ? <div className="overflow-hidden rounded-lg border border-[color:var(--border)]">
                   <table className="min-w-full text-xs">
-                    <thead className="bg-[#f5f5f5] text-left text-xs text-[#181818]">
+                    <thead className="bg-[color:var(--surface-2)] text-left text-xs text-[color:var(--text)]">
                       <tr>
                         <th className="px-3 py-2.5 font-medium">Task</th>
                         <th className="px-3 py-2.5 font-medium">Priority</th>
@@ -889,17 +1018,17 @@ function TasksScreen({
                     </thead>
                     <tbody>
                       {(grouped[key as keyof typeof grouped] ?? []).map((task) => (
-                        <tr key={task.id} className="border-t border-[#e8e8e8] hover:bg-[#fafafa]">
+                        <tr key={task.id} className="border-t border-[color:var(--border)] hover:bg-[color:var(--surface-2)]">
                           <td className="px-3 py-2.5"><button className="text-left font-medium" onClick={() => onOpenDetail(task)}>{task.title}</button></td>
                           <td className="px-3 py-2.5"><span className={`inline-flex items-center gap-1 ${task.priority === "HIGH" ? "text-red-500" : task.priority === "MEDIUM" ? "text-orange-500" : "text-zinc-400"}`}><PrioritySignal priority={task.priority} />{taskPriorityLabel[task.priority]}</span></td>
                           <td className="px-3 py-2.5"><AvatarStack count={task.priority === "HIGH" ? 3 : 2} /></td>
-                          <td className="px-3 py-2.5 text-[#555]">{task.dueDate ? new Date(task.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "--"}</td>
-                          <td className="px-3 py-2.5 text-right"><button className="text-[color:var(--text-muted)] hover:text-[color:var(--text)]" onClick={() => setCardMenuId(cardMenuId === task.id ? null : task.id)} aria-label={`Actions for ${task.title}`}><MoreHorizontal size={14} /></button>{cardMenuId === task.id ? <div className="absolute right-4 z-20 mt-1 grid w-20 rounded border border-[#e8e8e8] bg-white p-1 text-left text-xs shadow-lg"><button className="rounded px-2 py-1 hover:bg-[#f5f5f5]" onClick={() => onEdit(task)}>Edit</button><button className="rounded px-2 py-1 text-red-600 hover:bg-[#fef2f2]" onClick={() => onDelete(task.id)}>Delete</button></div> : null}</td>
+                          <td className="px-3 py-2.5 text-[color:var(--text-muted)]">{task.dueDate ? new Date(task.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : fallbackDueDate(`${task.id}-${task.title}`)}</td>
+                          <td data-task-menu className="relative px-3 py-2.5 text-right"><button className="text-[color:var(--text-muted)] hover:text-[color:var(--text)]" onClick={() => setCardMenuId(cardMenuId === task.id ? null : task.id)} aria-label={`Actions for ${task.title}`}><MoreHorizontal size={14} /></button>{cardMenuId === task.id ? <div className="absolute right-4 z-20 mt-1 grid w-20 rounded border border-[color:var(--border)] bg-[color:var(--surface)] p-1 text-left text-xs shadow-lg"><button className="rounded px-2 py-1 hover:bg-[color:var(--surface-2)]" onClick={() => onEdit(task)}>Edit</button><button className="rounded px-2 py-1 text-red-600 hover:bg-[#fef2f2]" onClick={() => onDelete(task.id)}>Delete</button></div> : null}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <button className="w-full border-t border-[#e8e8e8] px-3 py-2 text-left text-xs text-[#181818] hover:bg-[#fafafa]" onClick={() => onCreate(key)}>+ Add Task</button>
+                  <button className="w-full border-t border-[color:var(--border)] px-3 py-2 text-left text-xs text-[color:var(--text)] hover:bg-[color:var(--surface-2)]" onClick={() => onCreate(key)}>+ Add Task</button>
                 </div> : null}
               </section>
             ))}
@@ -922,7 +1051,7 @@ function TaskBoardCard({ task, fields, menuOpen, onClick, onMenu, onEdit, onDele
   }[task.title] ?? { name: "Admin", initials: "A", labels: ["Deployment", "Deployment"], date: "29 Jul" };
 
   return (
-    <div data-task-menu className="relative w-full cursor-pointer rounded-md border border-[#e8e8e8] bg-white p-2 text-left shadow-none hover:border-[#cfcfcf]" onClick={onClick} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onClick(); }}>
+    <div data-task-menu className="relative w-full cursor-pointer rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] p-2 text-left shadow-none hover:border-[color:var(--text-muted)]" onClick={onClick} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onClick(); }}>
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <p className="text-xs font-medium leading-4">{task.title}</p>
@@ -933,12 +1062,12 @@ function TaskBoardCard({ task, fields, menuOpen, onClick, onMenu, onEdit, onDele
                         {fields.members ? <span className="inline-flex items-center gap-1 text-[11px] text-[#333]">
                           <div className="flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-cyan-500 text-[7px] text-white">{details.initials}</div> {details.name}
                         </span> : <span />}
-                        <span className="flex items-center gap-1">{fields.priority ? <Badge className="rounded-full bg-[#f5f5f5] px-1.5 py-0.5 text-[10px] text-[#333]">{task.priority}</Badge> : null}{fields.dueDate ? <Badge className="rounded-full bg-[#ffeded] px-1.5 py-0.5 text-[10px] text-[#f04444]">{details.date}</Badge> : null}</span>
+                        <span className="flex items-center gap-1">{fields.priority ? <Badge className="rounded-full bg-[color:var(--surface-2)] px-1.5 py-0.5 text-[10px] text-[color:var(--text)]">{task.priority}</Badge> : null}{fields.dueDate ? <Badge className="rounded-full bg-[color:var(--surface-2)] px-1.5 py-0.5 text-[10px] text-[color:var(--text-muted)]">{details.date}</Badge> : null}</span>
                       </div> : null}
                       {fields.labels ? <div className="mt-1.5 flex flex-wrap gap-1">
                         {details.labels.map((label, index) => <Badge key={`${label}-${index}`} className="inline-flex items-center gap-1 rounded-full bg-[#f5f5f5] px-1.5 py-0.5 text-[10px] text-[#333]"><Tag size={10} strokeWidth={1.8} /> {label}</Badge>)}
                       </div> : null}
-      {menuOpen ? <div className="absolute right-2 top-7 z-20 grid w-20 rounded border border-[#e8e8e8] bg-white p-1 text-[10px] shadow-lg"><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={(event) => { event.stopPropagation(); onEdit(); }}>Edit</button><button className="rounded px-2 py-1 text-left text-red-600 hover:bg-[#fef2f2]" onClick={(event) => { event.stopPropagation(); onDelete(); }}>Delete</button></div> : null}
+      {menuOpen ? <div className="absolute right-2 top-7 z-20 grid w-20 rounded border border-[color:var(--border)] bg-[color:var(--surface)] p-1 text-[10px] shadow-lg"><button className="rounded px-2 py-1 text-left hover:bg-[color:var(--surface-2)]" onClick={(event) => { event.stopPropagation(); onEdit(); }}>Edit</button><button className="rounded px-2 py-1 text-left text-red-600 hover:bg-[#fef2f2]" onClick={(event) => { event.stopPropagation(); onDelete(); }}>Delete</button></div> : null}
     </div>
   );
 }
@@ -965,7 +1094,7 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [labels, setLabels] = useState(["Research", "Design", "Development", "Testing", "Deployment"]);
   const [resource, setResource] = useState("");
-  const dueDate = task.dueDate ? new Date(`${task.dueDate}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "No due date";
+  const dueDate = task.dueDate ? new Date(`${task.dueDate}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : fallbackDueDate(`${task.id}-${task.title}`);
   const [subtaskMenuOpen, setSubtaskMenuOpen] = useState<string | null>(null);
   const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
@@ -1203,7 +1332,7 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
             </div>
           </div>
           <div className="mt-5 grid gap-3 text-xs">
-            <DetailRow label="Properties" value={<span className="inline-flex items-center gap-2"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f3f3f3] text-[9px] text-[#181818]">A</span><span>Designer</span><Badge className="bg-[#ffeded] text-[#f04444]"><CalendarDays size={10} /> 31 Jul</Badge></span>} />
+            <DetailRow label="Properties" value={<span className="inline-flex items-center gap-2"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--surface-2)] text-[9px] text-[color:var(--text)]">A</span><span>Designer</span><Badge className="bg-[color:var(--surface-2)] text-[color:var(--text-muted)]"><CalendarDays size={10} /> 31 Jul</Badge></span>} />
             <DetailRow label="Labels" value={<span className="flex flex-wrap gap-1">{labels.map((label) => <Badge key={label} className="cursor-pointer bg-[#f5f5f5] text-[#333]" onClick={() => setLabels((current) => current.filter((item) => item !== label))}><Tag size={11} /> {label}</Badge>)}</span>} />
             <DetailRow label="Resources" value={resourceName ? <span className="inline-flex items-center gap-1.5 text-[#181818]"><Paperclip size={11} strokeWidth={2} /> <span>{resourceName}</span></span> : <button className="inline-flex items-center gap-1.5 text-[#777] hover:text-[#181818]" onClick={() => openAttachmentPicker("resource") }><Paperclip size={11} strokeWidth={2} /> <span>Add document or link...</span></button>} />
           </div>
@@ -1373,6 +1502,8 @@ function ProjectsScreen({
   const [filterOpen, setFilterOpen] = useState(false);
   const [actionMenuProjectId, setActionMenuProjectId] = useState<string | null>(null);
   const [actionMenuPosition, setActionMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const fieldsMenuRef = useRef<HTMLDivElement | null>(null);
+  const filterMenuRef = useRef<HTMLDivElement | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<ProjectItem["priority"] | "All">("All");
   const [visibleFields, setVisibleFields] = useState({
     priority: true,
@@ -1388,6 +1519,27 @@ function ProjectsScreen({
     setActionMenuProjectId(null);
     onOpenAdd();
   };
+
+  useEffect(() => {
+    if (!fieldsOpen && !filterOpen) return;
+
+    const handleClick = (event: MouseEvent) => {
+      if (!(event.target instanceof Node)) return;
+
+      const target = event.target instanceof Element ? event.target : null;
+
+      if (fieldsOpen && !target?.closest("[data-project-fields-menu]") && !fieldsMenuRef.current?.contains(event.target)) {
+        setFieldsOpen(false);
+      }
+
+      if (filterOpen && !target?.closest("[data-project-filter-menu]") && !filterMenuRef.current?.contains(event.target)) {
+        setFilterOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handleClick);
+    return () => window.removeEventListener("mousedown", handleClick);
+  }, [fieldsOpen, filterOpen]);
 
   const handleEditProject = (project: ProjectItem) => {
     setFieldsOpen(false);
@@ -1408,19 +1560,24 @@ function ProjectsScreen({
       <div className="flex items-center justify-between gap-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-semibold text-[color:var(--text)]">Projects</h2>
-          {selectedProject ? <div className="text-xs text-[color:var(--text-muted)]">Selected: {selectedProject.name}</div> : null}
         </div>
         <div className="relative flex items-center gap-2">
-          <button type="button" className="flex h-9 items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.03)]" onClick={() => setFieldsOpen((current) => !current)}>
-            <List size={14} /> Fields
-          </button>
-          <button type="button" className={`flex h-9 items-center gap-2 rounded-xl border bg-[color:var(--surface)] px-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.03)] ${priorityFilter === "All" ? "border-[color:var(--border)]" : "border-[color:var(--primary)] text-[color:var(--primary)]"}`} onClick={() => setFilterOpen((current) => !current)}>
-            <Filter size={14} /> {priorityFilter === "All" ? "Filter" : `Filter: ${priorityFilter}`}
-          </button>
+          <div ref={fieldsMenuRef} className="relative">
+            <button type="button" className="flex h-9 items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.03)]" onClick={() => setFieldsOpen((current) => !current)}>
+              <List size={14} /> Fields
+            </button>
+          </div>
+
+          <div ref={filterMenuRef} className="relative">
+            <button type="button" className={`flex h-9 items-center gap-2 rounded-xl border bg-[color:var(--surface)] px-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.03)] ${priorityFilter === "All" ? "border-[color:var(--border)]" : "border-[color:var(--primary)] text-[color:var(--primary)]"}`} onClick={() => setFilterOpen((current) => !current)}>
+              <Filter size={14} /> {priorityFilter === "All" ? "Filter" : `Filter: ${priorityFilter}`}
+            </button>
+          </div>
+
           <Button type="button" className="h-9 rounded-xl bg-[#181818] px-4 text-white hover:bg-[#111]" onClick={handleOpenAdd}><Plus size={14} /> Add Project</Button>
 
           {fieldsOpen ? (
-            <Card className="absolute right-[118px] top-11 z-20 w-[220px] p-2 shadow-2xl">
+            <Card data-project-fields-menu className="absolute right-[118px] top-11 z-20 w-[220px] p-2 shadow-2xl">
               {[
                 ["priority", "Priority"],
                 ["lead", "Lead"],
@@ -1441,7 +1598,7 @@ function ProjectsScreen({
           ) : null}
 
           {filterOpen ? (
-            <Card className="absolute right-[218px] top-11 z-20 w-[180px] p-2 shadow-2xl">
+            <Card data-project-filter-menu className="absolute right-[218px] top-11 z-20 w-[180px] p-2 shadow-2xl">
               {(["All", "High", "Medium", "Low"] as const).map((item) => (
                 <button
                   key={item}
@@ -1464,7 +1621,7 @@ function ProjectsScreen({
       <div className="grid gap-4">
         <Card className="overflow-hidden rounded-3xl">
           <table className="min-w-full text-sm">
-            <thead className="bg-[#f6f6f6] text-left text-xs text-[color:var(--text-muted)]">
+                    <thead className="bg-[color:var(--surface-2)] text-left text-xs text-[color:var(--text-muted)]">
               <tr>
                 <th className="px-4 py-3 font-medium">Projects</th>
                 {visibleFields.priority ? <th className="px-4 py-3 font-medium">Priority</th> : null}
@@ -1563,11 +1720,13 @@ function ProfileScreen({
   onLogout: () => void;
   onNavigate: (view: View) => void;
 }) {
+  const { resolvedTheme } = useTheme();
   const [sidebarTab, setSidebarTab] = useState<"profile" | "theme" | "color">("profile");
   const [openFlyout, setOpenFlyout] = useState<"theme" | "color" | null>(null);
   const [emailEditing, setEmailEditing] = useState(false);
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const currentTheme = resolvedTheme ?? "light";
 
   useEffect(() => {
     if (!openFlyout) return;
@@ -1616,8 +1775,8 @@ function ProfileScreen({
             {openFlyout === "theme" ? (
               <div data-profile-sidebar className="absolute left-[calc(100%+16px)] top-0 z-50 w-[210px] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl">
                 <div className="px-3 py-2 text-sm text-[color:var(--text-muted)]">Theme</div>
-                <SubMenuItem icon={SunMedium} label="Light" selected onClick={() => { onThemeChange("light"); setOpenFlyout(null); }} />
-                <SubMenuItem icon={MoonStar} label="Dark" onClick={() => { onThemeChange("dark"); setOpenFlyout(null); }} />
+                <SubMenuItem icon={SunMedium} label="Light" selected={currentTheme === "light"} onClick={() => { onThemeChange("light"); setOpenFlyout(null); }} />
+                <SubMenuItem icon={MoonStar} label="Dark" selected={currentTheme === "dark"} onClick={() => { onThemeChange("dark"); setOpenFlyout(null); }} />
               </div>
             ) : null}
           </div>
@@ -1648,7 +1807,7 @@ function ProfileScreen({
                     {profile.photo ? (
                       <img src={profile.photo} alt="Profile preview" className="h-11 w-11 rounded-full object-cover" />
                     ) : (
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-violet-500 text-white">D</div>
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-violet-500 text-white">{profile.name.slice(0, 1)}</div>
                     )}
                     <span className="absolute inset-0 rounded-full bg-black/0 transition group-hover:bg-black/10" />
                   </button>
@@ -1795,7 +1954,7 @@ function ProjectModal({
             <option>Medium</option>
             <option>Low</option>
           </select>
-          <Input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} />
+          <DatePickerField value={form.dueDate} onChange={(value) => setForm({ ...form, dueDate: value })} />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
             <Button disabled={!form.name.trim()} onClick={() => onSubmit({ id: initialProject?.id ?? `proj-${Date.now()}`, name: form.name, priority: form.priority, lead: form.lead || "ME", dueDate: formatDueDate(form.dueDate), state: initialProject?.state ?? "Backlog", members: initialProject?.members ?? [form.lead || "M"], labels: initialProject?.labels ?? ["Planning"] })}>{initialProject ? "Save" : "Create"}</Button>

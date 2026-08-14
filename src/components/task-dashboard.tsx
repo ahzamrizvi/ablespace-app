@@ -10,6 +10,7 @@ import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
 import { TaskFormModal } from "./task-form-modal";
 import { ThemeToggle } from "./theme-toggle";
+import { fallbackDueDate } from "@/lib/utils";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", active: true },
@@ -415,7 +416,7 @@ export function TaskDashboard() {
                         <td className="px-4 py-4">
                           <Badge className={priorityTone[task.priority]}>{priorityLabels[task.priority]}</Badge>
                         </td>
-                        <td className="px-4 py-4 text-sm text-[color:var(--text-muted)]">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "--"}</td>
+                        <td className="px-4 py-4 text-sm text-[color:var(--text-muted)]">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : fallbackDueDate(`${task.id}-${task.title}`)}</td>
                         <td className="px-4 py-4">
                           <div className="flex flex-wrap gap-2">
                             <Button variant="secondary" size="sm" onClick={() => { setEditingTask(task); setDialogOpen(true); }}>

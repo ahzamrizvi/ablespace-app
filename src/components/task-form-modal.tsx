@@ -6,6 +6,7 @@ import { Task, TaskPriority, TaskStatus } from "@/lib/types";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
+import { DatePickerField } from "./date-picker-field";
 
 type Props = {
   open: boolean;
@@ -154,7 +155,7 @@ export function TaskFormModal({ open, onClose, onSubmit, initialTask, initialSta
 
             <div className="grid gap-2">
               <label className="text-sm font-medium text-[color:var(--text)]">Due date</label>
-              <Input type="date" value={form.dueDate} onChange={(event) => setForm((current) => ({ ...current, dueDate: event.target.value }))} />
+              <DatePickerField value={form.dueDate} onChange={(value) => setForm((current) => ({ ...current, dueDate: value }))} />
             </div>
           </div>
 
