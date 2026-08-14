@@ -170,6 +170,24 @@ const guestProfileDefaults = {
   photo: null,
 };
 
+const profileKeyPrefix = "able-space.profile";
+
+function buildProfileFromUser(currentUser: User): ProfileState {
+  if (currentUser.isGuest) return guestProfileDefaults;
+
+  return {
+    name: currentUser.name,
+    email: currentUser.email ?? "",
+    title: currentUser.name || "User",
+    username: currentUser.name.toLowerCase().replace(/\s+/g, "") || "user",
+    photo: null,
+  };
+}
+
+function getProfileStorageKey(currentUser: User | null) {
+  return `${profileKeyPrefix}.${currentUser?.id ?? "guest"}`;
+}
+
 export function AssessmentApp() {
   const { setTheme } = useTheme();
   const [ready, setReady] = useState(false);
@@ -224,7 +242,19 @@ export function AssessmentApp() {
             const response = await guestLogin();
             if (!active) return;
             setUser(response.user);
-            setProfile(guestProfileDefaults);
+            {
+              const storageKey = getProfileStorageKey(response.user);
+              const storedProfile = window.localStorage.getItem(storageKey);
+              if (storedProfile) {
+                try {
+                  setProfile({ ...buildProfileFromUser(response.user), ...JSON.parse(storedProfile) });
+                } catch {
+                  setProfile(buildProfileFromUser(response.user));
+                }
+              } else {
+                setProfile(buildProfileFromUser(response.user));
+              }
+            }
             setView("tasks");
             await loadTasks();
             return;
@@ -236,21 +266,39 @@ export function AssessmentApp() {
 
         if (currentUser.isGuest) {
           setUser(currentUser);
-          setProfile(guestProfileDefaults);
+          {
+            const storageKey = getProfileStorageKey(currentUser);
+            const storedProfile = window.localStorage.getItem(storageKey);
+            if (storedProfile) {
+              try {
+                setProfile({ ...buildProfileFromUser(currentUser), ...JSON.parse(storedProfile) });
+              } catch {
+                setProfile(buildProfileFromUser(currentUser));
+              }
+            } else {
+              setProfile(buildProfileFromUser(currentUser));
+            }
+          }
           setView("tasks");
           await loadTasks();
           return;
         }
 
         setUser(currentUser);
-        setProfile((current) => ({
-          ...current,
-          name: currentUser.name,
-          email: currentUser.email ?? "",
-          title: current.title,
-          username: current.username,
-        }));
-        setUser(currentUser);
+        {
+          const storageKey = getProfileStorageKey(currentUser);
+          const storedProfile = window.localStorage.getItem(storageKey);
+          const baseProfile = buildProfileFromUser(currentUser);
+          if (storedProfile) {
+            try {
+              setProfile({ ...baseProfile, ...JSON.parse(storedProfile) });
+            } catch {
+              setProfile(baseProfile);
+            }
+          } else {
+            setProfile(baseProfile);
+          }
+        }
         setView("tasks");
         void loadTasks();
       })
@@ -270,6 +318,12 @@ export function AssessmentApp() {
     document.documentElement.dataset.accent = accent;
     window.localStorage.setItem(accentKey, accent);
   }, [accent]);
+
+  useEffect(() => {
+    if (!ready || !user) return;
+
+    window.localStorage.setItem(getProfileStorageKey(user), JSON.stringify(profile));
+  }, [profile, ready, user]);
 
   useEffect(() => {
     if (view !== "tasks") return;
@@ -1866,20 +1920,17 @@ function ProfileScreen({
     if (emailEditing) emailInputRef.current?.focus();
   }, [emailEditing]);
 
-  useEffect(() => {
-    return () => {
-      if (profile.photo) URL.revokeObjectURL(profile.photo);
-    };
-  }, [profile.photo]);
-
   function handlePhotoPick(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setProfile((current) => {
-      if (current.photo) URL.revokeObjectURL(current.photo);
-      return { ...current, photo: URL.createObjectURL(file) };
-    });
+    const reader = new FileReader();
+    reader.onload = () => {
+      const photo = reader.result;
+      if (typeof photo !== "string") return;
+      setProfile((current) => ({ ...current, photo }));
+    };
+    reader.readAsDataURL(file);
     event.target.value = "";
   }
 
