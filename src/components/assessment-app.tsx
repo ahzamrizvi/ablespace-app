@@ -51,6 +51,7 @@ import { TaskFormModal } from "./task-form-modal";
 import { SubtaskFormModal, type SubtaskFormValue } from "./subtask-form-modal";
 import { DatePickerField } from "./date-picker-field";
 import { useTheme } from "next-themes";
+import { buildProfileFromUser, guestProfileDefaults, getProfileStorageKey } from "@/lib/profile-storage";
 import { fallbackDueDate } from "@/lib/utils";
 
 type View = "login" | "tasks" | "task-detail" | "projects" | "profile";
@@ -161,32 +162,6 @@ const seedProjects: ProjectItem[] = [
     labels: ["Testing", "Deployment"],
   },
 ];
-
-const guestProfileDefaults = {
-  name: "Guest User",
-  email: "Guest account",
-  title: "Guest",
-  username: "guest",
-  photo: null,
-};
-
-const profileKeyPrefix = "able-space.profile";
-
-function buildProfileFromUser(currentUser: User): ProfileState {
-  if (currentUser.isGuest) return guestProfileDefaults;
-
-  return {
-    name: currentUser.name,
-    email: currentUser.email ?? "",
-    title: currentUser.name || "User",
-    username: currentUser.name.toLowerCase().replace(/\s+/g, "") || "user",
-    photo: null,
-  };
-}
-
-function getProfileStorageKey(currentUser: User | null) {
-  return `${profileKeyPrefix}.${currentUser?.id ?? "guest"}`;
-}
 
 export function AssessmentApp() {
   const { setTheme } = useTheme();
