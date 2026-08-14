@@ -121,7 +121,7 @@ export function DatePickerField({ value, onChange, placeholder = "dd / mm / yyyy
                 <button
                   key={index}
                   type="button"
-                  className={`h-8 rounded-full ${isSelected ? "bg-black text-white" : isCurrentMonth ? "hover:bg-[color:var(--surface-2)]" : "text-[color:var(--text-muted)]"}`}
+                  className={`h-8 rounded-full ${isSelected ? "bg-[color:var(--primary)] text-white" : isCurrentMonth ? "hover:bg-[color:var(--surface-2)]" : "text-[color:var(--text-muted)]"}`}
                   disabled={!isCurrentMonth}
                   onClick={() => {
                     const next = new Date(year, month, dayNumber);

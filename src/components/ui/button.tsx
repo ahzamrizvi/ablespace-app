@@ -13,7 +13,7 @@ export function Button({ className, variant = "primary", size = "md", ...props }
         variant === "primary" && "bg-[color:var(--primary)] text-white shadow-sm hover:opacity-95",
         variant === "secondary" && "bg-[color:var(--surface-2)] text-[color:var(--text)] hover:bg-[color:var(--border-soft)]",
         variant === "ghost" && "bg-transparent text-[color:var(--text-muted)] hover:bg-[color:var(--surface-2)] hover:text-[color:var(--text)]",
-        variant === "danger" && "bg-[#ef4444] text-white hover:bg-[#dc2626]",
+        variant === "danger" && "bg-[color:var(--danger)] text-white hover:bg-[color:var(--danger-hover)]",
         size === "sm" && "h-9 px-3 text-sm",
         size === "md" && "h-11 px-4 text-sm",
         size === "lg" && "h-12 px-5 text-base",

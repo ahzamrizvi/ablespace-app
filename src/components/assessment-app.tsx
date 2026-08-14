@@ -305,9 +305,7 @@ export function AssessmentApp() {
     [projectQuery, projects],
   );
 
-  const displayProfile = user?.isGuest
-    ? { ...guestProfileDefaults, photo: profile.photo }
-    : profile;
+  const displayProfile = profile;
 
   async function loadTasks() {
     try {
@@ -419,11 +417,11 @@ export function AssessmentApp() {
           <Card className="w-full rounded-[25px] border-[color:var(--border)] bg-[color:var(--surface)] px-6 py-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="text-center">
               <h1 className="text-[21px] font-semibold leading-7 tracking-[-0.03em]">Let&apos;s get back on track</h1>
-              <p className="mt-1 text-sm leading-5 text-[#777]">Enter your email below to login to your account.</p>
+              <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">Enter your email below to login to your account.</p>
             </div>
 
             <div className="mt-6 grid gap-3">
-              <Button className="h-9 w-full rounded-full bg-[#181818] text-sm font-medium text-white hover:bg-[#181818]/90" onClick={handleGuestLogin} disabled={loadingAuth}>
+              <Button className="h-9 w-full rounded-full text-sm font-medium" onClick={handleGuestLogin} disabled={loadingAuth}>
                 {loadingAuth ? "Creating guest session..." : "Continue as Guest"}
               </Button>
               <Button variant="secondary" className="h-9 w-full rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-sm font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-2)]" onClick={() => undefined}>
@@ -656,7 +654,7 @@ export function AssessmentApp() {
 
 function PyramidMark() {
   return (
-    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] bg-[#181818] text-white" aria-hidden="true">
+    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] bg-[color:var(--primary)] text-white" aria-hidden="true">
       <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none">
         <path d="M6 18.5 12 5l6 13.5H6Z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" />
         <path d="M12 5 9 18.5M12 5l3 13.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
@@ -839,12 +837,12 @@ function TasksScreen({
       ghost.style.width = "220px";
       ghost.style.padding = "12px 14px";
       ghost.style.borderRadius = "16px";
-      ghost.style.border = "1px solid #d8d8d8";
+      ghost.style.border = "1px solid var(--border)";
       ghost.style.background = "rgba(255,255,255,0.95)";
       ghost.style.boxShadow = "0 14px 40px rgba(15,23,42,0.18)";
       ghost.style.fontSize = "14px";
       ghost.style.fontWeight = "600";
-      ghost.style.color = "#181818";
+      ghost.style.color = "var(--text)";
       ghost.textContent = label;
     }
 
@@ -947,7 +945,7 @@ function TasksScreen({
                      ] as const).map(([label, field]) => (
                        <label key={field} className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 hover:bg-[color:var(--surface-2)]">
                          <span>{label}</span>
-                         <input type="checkbox" className="h-4 w-4 accent-[#181818]" checked={visibleFields[field]} onChange={() => setVisibleFields((current) => ({ ...current, [field]: !current[field] }))} />
+                          <input type="checkbox" className="h-4 w-4 accent-[color:var(--primary)]" checked={visibleFields[field]} onChange={() => setVisibleFields((current) => ({ ...current, [field]: !current[field] }))} />
                        </label>
                      ))}
                    </div>
@@ -957,7 +955,7 @@ function TasksScreen({
             <button className="flex h-7 w-7 items-center justify-center rounded border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)]" onClick={() => setFilterOpen((current) => !current)} aria-label="Filter tasks">
               <Filter size={12} />
             </button>
-            <Button className="h-7 rounded bg-[#181818] px-2 text-[10px] text-white hover:opacity-95" onClick={() => onCreate()}><Plus size={11} /> Add Task</Button>
+            <Button className="h-7 rounded px-2 text-[10px] text-white" onClick={() => onCreate()}><Plus size={11} /> Add Task</Button>
           </div>
         </div>
 
@@ -1396,84 +1394,84 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
   }, [emojiPickerOpen, updateMenuOpen]);
 
   return (
-    <div className="relative w-full text-[#181818]">
+    <div className="relative w-full text-[color:var(--text)]">
       <button className="sr-only" onClick={onBack}>Back to tasks</button>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <section>
           <div className="flex flex-col gap-4 pr-2 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0"><h1 className="text-xl font-semibold tracking-tight">{task.title}</h1><p className="mt-1 max-w-xl text-xs leading-4 text-[#777]">{task.description || "Create clear and detailed API documentation to guide developers in using the inventory and sales metrics features effectively."}</p></div>
+            <div className="min-w-0"><h1 className="text-xl font-semibold tracking-tight">{task.title}</h1><p className="mt-1 max-w-xl text-xs leading-4 text-[color:var(--text-muted)]">{task.description || "Create clear and detailed API documentation to guide developers in using the inventory and sales metrics features effectively."}</p></div>
             <div className="flex flex-wrap items-center justify-end gap-1">
-               <button className={`flex h-7 w-7 items-center justify-center rounded border hover:bg-[#f5f5f5] ${locked ? "border-[#181818] bg-[#181818] text-white" : "border-[#e8e8e8]"}`} onClick={toggleLock} aria-label="Lock task"><Lock size={14} strokeWidth={2} /></button>
-               <button className="flex h-7 items-center gap-1 rounded border border-[#e8e8e8] px-2 text-[#5968ff] hover:bg-[#f5f5f5]" onClick={toggleWatch} aria-label="Watch task"><Eye size={14} strokeWidth={2} /> <span className="text-xs">{watchCount}</span></button>
-               <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={() => { void shareTask(); }} aria-label="Share task"><Share2 size={14} strokeWidth={2} /></button>
-              <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={onEdit} aria-label="More task options"><MoreHorizontal size={15} strokeWidth={2.5} /></button>
-               <button className="flex h-7 w-7 items-center justify-center rounded bg-[#f1f1f1] text-[#777] hover:bg-[#e8e8e8]" onClick={onBack} aria-label="Close task details"><PanelLeft size={14} strokeWidth={2} /></button>
+                <button className={`flex h-7 w-7 items-center justify-center rounded border hover:bg-[color:var(--surface-2)] ${locked ? "border-[color:var(--primary)] bg-[color:var(--primary)] text-white" : "border-[color:var(--border)]"}`} onClick={toggleLock} aria-label="Lock task"><Lock size={14} strokeWidth={2} /></button>
+                <button className="flex h-7 items-center gap-1 rounded border border-[color:var(--border)] px-2 text-[color:var(--info)] hover:bg-[color:var(--surface-2)]" onClick={toggleWatch} aria-label="Watch task"><Eye size={14} strokeWidth={2} /> <span className="text-xs">{watchCount}</span></button>
+                <button className="flex h-7 w-7 items-center justify-center rounded border border-[color:var(--border)] hover:bg-[color:var(--surface-2)]" onClick={() => { void shareTask(); }} aria-label="Share task"><Share2 size={14} strokeWidth={2} /></button>
+               <button className="flex h-7 w-7 items-center justify-center rounded border border-[color:var(--border)] hover:bg-[color:var(--surface-2)]" onClick={onEdit} aria-label="More task options"><MoreHorizontal size={15} strokeWidth={2.5} /></button>
+                <button className="flex h-7 w-7 items-center justify-center rounded bg-[color:var(--surface-2)] text-[color:var(--text-muted)] hover:bg-[color:var(--border)]" onClick={onBack} aria-label="Close task details"><PanelLeft size={14} strokeWidth={2} /></button>
             </div>
           </div>
           <div className="mt-5 grid gap-3 text-xs">
             <DetailRow label="Properties" value={<span className="inline-flex items-center gap-2"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--surface-2)] text-[9px] text-[color:var(--text)]">A</span><span>Designer</span><Badge className="bg-[color:var(--surface-2)] text-[color:var(--text-muted)]"><CalendarDays size={10} /> 31 Jul</Badge></span>} />
-            <DetailRow label="Labels" value={<span className="flex flex-wrap gap-1">{labels.map((label) => <Badge key={label} className="cursor-pointer bg-[#f5f5f5] text-[#333]" onClick={() => setLabels((current) => current.filter((item) => item !== label))}><Tag size={11} /> {label}</Badge>)}</span>} />
-            <DetailRow label="Resources" value={resourceName ? <span className="inline-flex items-center gap-1.5 text-[#181818]"><Paperclip size={11} strokeWidth={2} /> <span>{resourceName}</span></span> : <button className="inline-flex items-center gap-1.5 text-[#777] hover:text-[#181818]" onClick={() => openAttachmentPicker("resource") }><Paperclip size={11} strokeWidth={2} /> <span>Add document or link...</span></button>} />
+            <DetailRow label="Labels" value={<span className="flex flex-wrap gap-1">{labels.map((label) => <Badge key={label} className="cursor-pointer bg-[color:var(--surface-2)] text-[color:var(--text-muted)]" onClick={() => setLabels((current) => current.filter((item) => item !== label))}><Tag size={11} /> {label}</Badge>)}</span>} />
+            <DetailRow label="Resources" value={resourceName ? <span className="inline-flex items-center gap-1.5 text-[color:var(--text)]"><Paperclip size={11} strokeWidth={2} /> <span>{resourceName}</span></span> : <button className="inline-flex items-center gap-1.5 text-[color:var(--text-muted)] hover:text-[color:var(--text)]" onClick={() => openAttachmentPicker("resource") }><Paperclip size={11} strokeWidth={2} /> <span>Add document or link...</span></button>} />
           </div>
           <button className="mt-6 inline-flex items-center gap-1 text-xs font-semibold" onClick={() => setSubtasksOpen((current) => !current)} aria-expanded={subtasksOpen}>
             <span className={subtasksOpen ? "transition-transform" : "-rotate-90 transition-transform"}><FilledCaretDown /></span>
             Subtasks
           </button>
-          {subtasksOpen ? <div className="mt-2 w-full overflow-visible rounded-md border border-[#e8e8e8]">
+          {subtasksOpen ? <div className="mt-2 w-full overflow-visible rounded-md border border-[color:var(--border)]">
             <table className="min-w-full text-xs"><thead className="bg-[#f5f5f5]"><tr><th className="px-3 py-2 text-left font-medium">Task</th><th className="px-3 py-2 text-left font-medium">Priority</th><th className="px-3 py-2 text-left font-medium">Members</th><th className="px-3 py-2 text-left font-medium">Due Date</th><th className="px-3 py-2 text-right font-medium">Actions</th></tr></thead><tbody>{subtasks.map((item, index) => <tr key={item.id} className="border-t border-[#e8e8e8]"><td className="px-3 py-2">{item.title}</td><td className={`px-3 py-2 ${index === 0 ? "text-red-500" : index === 1 ? "text-zinc-400" : "text-orange-500"}`}><PrioritySignal priority={item.priority} /> {index === 0 ? "High" : index === 1 ? "Low" : "Medium"}</td><td className="px-3 py-2">{index === 0 ? <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white"><UserCircle2 size={12} strokeWidth={2} /></span> : <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#e8e8e8] bg-white text-[11px] font-medium text-[#181818]">{item.member}</span>}</td><td className="px-3 py-2">{item.dueDate}</td><td className="relative px-3 py-2 text-right"><div data-subtask-menu className="relative inline-flex overflow-visible"><button className="inline-flex h-5 w-5 items-center justify-center rounded p-0 leading-none hover:bg-[#f5f5f5]" aria-label={`Actions for ${item.title}`} onClick={() => setSubtaskMenuOpen((current) => current === item.id ? null : item.id)}><MoreHorizontal size={14} className="translate-y-[0.5px]" /></button>{subtaskMenuOpen === item.id ? <div className="absolute right-0 top-6 z-50 grid w-24 rounded border border-[#e8e8e8] bg-white p-1 text-left text-[10px] shadow-lg"><button className="rounded px-2 py-1 hover:bg-[#f5f5f5]" onClick={() => duplicateSubtask(item.id)}>Duplicate</button><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={() => openEditSubtask(item.id)}>Edit</button><button className="rounded px-2 py-1 text-left text-red-600 hover:bg-[#fef2f2]" onClick={() => deleteSubtask(item.id)}>Delete</button></div> : null}</div></td></tr>)}</tbody></table><button className="w-full border-t border-[#e8e8e8] px-3 py-2 text-left text-xs" onClick={openAddSubtask}>+ Add Subtask</button>
           </div> : null}
           <button className="mt-6 inline-flex items-center gap-1 text-xs font-semibold" onClick={() => setUpdatesOpen((current) => !current)} aria-expanded={updatesOpen}>
             <span className={updatesOpen ? "transition-transform" : "-rotate-90 transition-transform"}><FilledCaretDown /></span>
             Updates
           </button>
-          {updatesOpen ? <div className="mt-2 w-full overflow-visible rounded-md border border-[#e8e8e8] text-xs">
+          {updatesOpen ? <div className="mt-2 w-full overflow-visible rounded-md border border-[color:var(--border)] text-xs">
             <div className="relative flex items-start justify-between px-3 py-2.5">
               <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white">A</span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[color:var(--primary)] text-[9px] text-white">A</span>
                 <div className="flex items-center gap-2">
                   <div className="text-[11px] font-medium">Ankit Dutta</div>
-                  <div className="text-[10px] text-[#777]">just now</div>
+                  <div className="text-[10px] text-[color:var(--text-muted)]">just now</div>
                 </div>
               </div>
-              <div data-update-actions className="flex items-center gap-2 text-[#181818]">
+              <div data-update-actions className="flex items-center gap-2 text-[color:var(--text)]">
                 <div className="relative inline-flex" data-emoji-picker-anchor>
-                  <button aria-label="Add reaction" className="rounded p-1 hover:bg-[#f5f5f5]" onClick={() => setEmojiPickerOpen((current) => !current)}><Smile size={14} strokeWidth={2} /></button>
-                  {emojiPickerOpen ? <div data-emoji-picker className="absolute right-0 top-full z-50 mt-2 grid w-[10.5rem] grid-cols-4 gap-1 rounded border border-[#e8e8e8] bg-white p-2 text-lg shadow-lg">{["😀", "😄", "😍", "😎", "🤔", "👍", "🎉", "🔥", "🚀", "✅", "💬", "👏"].map((emoji) => <button key={emoji} className="rounded p-1 hover:bg-[#f5f5f5]" onClick={() => { setReactionEmoji(emoji); setEmojiPickerOpen(false); }}>{emoji}</button>)}</div> : null}
+                  <button aria-label="Add reaction" className="rounded p-1 hover:bg-[color:var(--surface-2)]" onClick={() => setEmojiPickerOpen((current) => !current)}><Smile size={14} strokeWidth={2} /></button>
+                  {emojiPickerOpen ? <div data-emoji-picker className="absolute right-0 top-full z-50 mt-2 grid w-[10.5rem] grid-cols-4 gap-1 rounded border border-[color:var(--border)] bg-[color:var(--surface)] p-2 text-lg shadow-lg">{["😀", "😄", "😍", "😎", "🤔", "👍", "🎉", "🔥", "🚀", "✅", "💬", "👏"].map((emoji) => <button key={emoji} className="rounded p-1 hover:bg-[color:var(--surface-2)]" onClick={() => { setReactionEmoji(emoji); setEmojiPickerOpen(false); }}>{emoji}</button>)}</div> : null}
                 </div>
-                <button aria-label="More comment actions" className="inline-flex h-7 w-7 items-center justify-center rounded p-0 hover:bg-[#f5f5f5]" onClick={() => setUpdateMenuOpen((current) => !current)}><MoreHorizontal size={14} className="translate-y-[0.5px]" /></button>
-                {updateMenuOpen ? <div className="absolute right-2 top-8 z-50 grid w-28 rounded border border-[#e8e8e8] bg-white p-1 text-[10px] shadow-lg"><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={() => { setEditingUpdate(true); setUpdateDraft(updateText); setUpdateMenuOpen(false); }}>Edit</button><button className="rounded px-2 py-1 text-left text-red-600 hover:bg-[#fef2f2]" onClick={() => { setUpdateText(""); setUpdateDraft(""); setUpdateMenuOpen(false); }}>Delete</button></div> : null}
+                <button aria-label="More comment actions" className="inline-flex h-7 w-7 items-center justify-center rounded p-0 hover:bg-[color:var(--surface-2)]" onClick={() => setUpdateMenuOpen((current) => !current)}><MoreHorizontal size={14} className="translate-y-[0.5px]" /></button>
+                {updateMenuOpen ? <div className="absolute right-2 top-8 z-50 grid w-28 rounded border border-[color:var(--border)] bg-[color:var(--surface)] p-1 text-[10px] shadow-lg"><button className="rounded px-2 py-1 text-left hover:bg-[color:var(--surface-2)]" onClick={() => { setEditingUpdate(true); setUpdateDraft(updateText); setUpdateMenuOpen(false); }}>Edit</button><button className="rounded px-2 py-1 text-left text-[color:var(--danger)] hover:bg-[color:var(--danger-soft)]" onClick={() => { setUpdateText(""); setUpdateDraft(""); setUpdateMenuOpen(false); }}>Delete</button></div> : null}
               </div>
             </div>
-            {editingUpdate ? <div className="px-3 pb-3"><textarea className="min-h-20 w-full rounded-md border border-[#e8e8e8] px-3 py-2 text-[15px] leading-5 outline-none" value={updateDraft} onChange={(event) => setUpdateDraft(event.target.value)} /><div className="mt-2 flex justify-end gap-2"><button className="rounded-md border border-[#e8e8e8] px-3 py-1.5 text-xs" onClick={() => { setEditingUpdate(false); setUpdateDraft(updateText); }}>Cancel</button><button className="rounded-md bg-[#181818] px-3 py-1.5 text-xs text-white" onClick={() => { setUpdateText(updateDraft); setEditingUpdate(false); }}>Save</button></div></div> : <div className="px-3 pb-3 text-[15px] leading-5 text-[#181818]">{updateText || "No update text"}</div>}
-            <div className="border-t border-[#e8e8e8] px-3 py-2.5">
+            {editingUpdate ? <div className="px-3 pb-3"><textarea className="min-h-20 w-full rounded-md border border-[color:var(--border)] px-3 py-2 text-[15px] leading-5 outline-none" value={updateDraft} onChange={(event) => setUpdateDraft(event.target.value)} /><div className="mt-2 flex justify-end gap-2"><button className="rounded-md border border-[color:var(--border)] px-3 py-1.5 text-xs" onClick={() => { setEditingUpdate(false); setUpdateDraft(updateText); }}>Cancel</button><button className="rounded-md bg-[color:var(--primary)] px-3 py-1.5 text-xs text-white" onClick={() => { setUpdateText(updateDraft); setEditingUpdate(false); }}>Save</button></div></div> : <div className="px-3 pb-3 text-[15px] leading-5 text-[color:var(--text)]">{updateText || "No update text"}</div>}
+            <div className="border-t border-[color:var(--border)] px-3 py-2.5">
               <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white">A</span>
-                <input className="min-w-0 flex-1 bg-transparent text-[#181818] outline-none placeholder:text-[#777]" value={replyText} onChange={(event) => setReplyText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") sendReply(); }} placeholder="Leave a reply..." />
-                <button aria-label="Attach file" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]" onClick={() => openAttachmentPicker("reply")}><Paperclip size={14} /></button>
-                <button aria-label="Send reply" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]" onClick={sendReply}><Send size={14} /></button>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[color:var(--primary)] text-[9px] text-white">A</span>
+                <input className="min-w-0 flex-1 bg-transparent text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]" value={replyText} onChange={(event) => setReplyText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") sendReply(); }} placeholder="Leave a reply..." />
+                <button aria-label="Attach file" className="rounded p-1 text-[color:var(--text)] hover:bg-[color:var(--surface-2)]" onClick={() => openAttachmentPicker("reply")}><Paperclip size={14} /></button>
+                <button aria-label="Send reply" className="rounded p-1 text-[color:var(--text)] hover:bg-[color:var(--surface-2)]" onClick={sendReply}><Send size={14} /></button>
               </div>
             </div>
-            {replies.length > 0 ? <div className="w-full space-y-2 border-t border-[#e8e8e8] px-3 py-2.5">{replies.map((item, index) => <div key={`${item}-${index}`} className="rounded-md bg-[#fafafa] px-2 py-1.5 text-[11px] text-[#181818]">{item}</div>)}</div> : null}
+            {replies.length > 0 ? <div className="w-full space-y-2 border-t border-[color:var(--border)] px-3 py-2.5">{replies.map((item, index) => <div key={`${item}-${index}`} className="rounded-md bg-[color:var(--surface-2)] px-2 py-1.5 text-[11px] text-[color:var(--text)]">{item}</div>)}</div> : null}
           </div> : null}
-          <div className="mt-3 w-full rounded-md border border-[#e8e8e8] px-3 py-3 text-xs text-[#777]">
+          <div className="mt-3 w-full rounded-md border border-[color:var(--border)] px-3 py-3 text-xs text-[color:var(--text-muted)]">
             <div className="flex items-center gap-2">
-                <input className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[#777]" value={comment} onChange={(event) => setComment(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") sendComment(); }} placeholder={commentAttachmentName || "Add a comment..."} />
-                <button aria-label="Attach file" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]" onClick={() => openAttachmentPicker("comment")}><Paperclip size={14} /></button>
-              <button aria-label="Send comment" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]" onClick={sendComment}><Send size={14} /></button>
+                <input className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[color:var(--text-muted)]" value={comment} onChange={(event) => setComment(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") sendComment(); }} placeholder={commentAttachmentName || "Add a comment..."} />
+                <button aria-label="Attach file" className="rounded p-1 text-[color:var(--text)] hover:bg-[color:var(--surface-2)]" onClick={() => openAttachmentPicker("comment")}><Paperclip size={14} /></button>
+              <button aria-label="Send comment" className="rounded p-1 text-[color:var(--text)] hover:bg-[color:var(--surface-2)]" onClick={sendComment}><Send size={14} /></button>
             </div>
           </div>
-          {comments.length > 0 ? <div className="mt-2 w-full space-y-2 text-xs text-[#181818]">{comments.map((item, index) => <div key={`${item}-${index}`} className="rounded-md border border-[#e8e8e8] px-3 py-2">{item}</div>)}</div> : null}
+          {comments.length > 0 ? <div className="mt-2 w-full space-y-2 text-xs text-[color:var(--text)]">{comments.map((item, index) => <div key={`${item}-${index}`} className="rounded-md border border-[color:var(--border)] px-3 py-2">{item}</div>)}</div> : null}
         </section>
           <div className="flex w-full flex-col gap-3 lg:pt-20">
-          <aside className="mt-0 w-full rounded-md border border-[#e8e8e8] p-4 text-xs">
-            <div className="flex items-center justify-between border-b border-[#e8e8e8] pb-2 font-medium">
+          <aside className="mt-0 w-full rounded-md border border-[color:var(--border)] p-4 text-xs">
+            <div className="flex items-center justify-between border-b border-[color:var(--border)] pb-2 font-medium">
               <button className="inline-flex items-center gap-1.5" onClick={() => setDetailsOpen((current) => !current)} aria-expanded={detailsOpen}>
                 <span className={detailsOpen ? "transition-transform" : "-rotate-90 transition-transform"}><FilledCaretDown /></span> Details
               </button>
-              <div data-details-actions className="relative flex items-center gap-1 text-[#181818]" onClick={(event) => event.stopPropagation()}>
-                <button className="flex h-5 w-5 items-center justify-center rounded hover:bg-[#f5f5f5]" aria-label="Add detail" onClick={() => { setDetailDraft(""); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}><Plus size={12} strokeWidth={2} /></button>
-                <button className="flex h-5 w-5 items-center justify-center rounded hover:bg-[#f5f5f5]" aria-label="Details settings" onClick={() => setDetailsMenuOpen((current) => !current)}><Settings size={12} strokeWidth={2} /></button>
-                {detailsMenuOpen ? <div className="absolute right-2 top-8 z-50 grid w-[min(14rem,calc(100vw-2rem))] rounded border border-[#e8e8e8] bg-white p-1 text-[10px] shadow-lg sm:w-28"><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={() => { setDetailDraft("Status"); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}>Add status row</button><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={() => { setDetailDraft("Custom detail"); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}>Custom field</button></div> : null}
+              <div data-details-actions className="relative flex items-center gap-1 text-[color:var(--text)]" onClick={(event) => event.stopPropagation()}>
+                <button className="flex h-5 w-5 items-center justify-center rounded hover:bg-[color:var(--surface-2)]" aria-label="Add detail" onClick={() => { setDetailDraft(""); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}><Plus size={12} strokeWidth={2} /></button>
+                <button className="flex h-5 w-5 items-center justify-center rounded hover:bg-[color:var(--surface-2)]" aria-label="Details settings" onClick={() => setDetailsMenuOpen((current) => !current)}><Settings size={12} strokeWidth={2} /></button>
+                {detailsMenuOpen ? <div className="absolute right-2 top-8 z-50 grid w-[min(14rem,calc(100vw-2rem))] rounded border border-[color:var(--border)] bg-[color:var(--surface)] p-1 text-[10px] shadow-lg sm:w-28"><button className="rounded px-2 py-1 text-left hover:bg-[color:var(--surface-2)]" onClick={() => { setDetailDraft("Status"); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}>Add status row</button><button className="rounded px-2 py-1 text-left hover:bg-[color:var(--surface-2)]" onClick={() => { setDetailDraft("Custom detail"); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}>Custom field</button></div> : null}
               </div>
             </div>
             {detailsOpen ? <div className="grid gap-2.5 pt-3">
@@ -1506,24 +1504,24 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
               <DetailRow label="Reporter" value="Admin" />
             </div> : null}
           </aside>
-          <div className="w-full rounded-md border border-[#e8e8e8] px-3 py-2.5 text-xs">
-            <button className="flex w-full items-center gap-1.5 text-[11px] font-medium text-[#181818]" onClick={() => setUpdatesOpen((current) => !current)} aria-expanded={updatesOpen}>
+          <div className="w-full rounded-md border border-[color:var(--border)] px-3 py-2.5 text-xs">
+            <button className="flex w-full items-center gap-1.5 text-[11px] font-medium text-[color:var(--text)]" onClick={() => setUpdatesOpen((current) => !current)} aria-expanded={updatesOpen}>
               <span className={updatesOpen ? "transition-transform" : "-rotate-90 transition-transform"}><FilledCaretDown /></span>
               <span>Updates</span>
             </button>
             {updatesOpen ? <>
             <div className="mt-2 flex items-start gap-2">
-              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#fff1f1] text-[#ff5a5a]"><span className="inline-flex items-end gap-[2px]" aria-hidden="true"><span className="h-[4px] w-[2px] rounded-full bg-[#ff5a5a]" /><span className="h-[7px] w-[2px] rounded-full bg-[#ff5a5a]" /><span className="h-[10px] w-[2px] rounded-full bg-[#ff5a5a]" /></span></span>
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--danger-soft)] text-[color:var(--danger)]"><span className="inline-flex items-end gap-[2px]" aria-hidden="true"><span className="h-[4px] w-[2px] rounded-full bg-[color:var(--danger)]" /><span className="h-[7px] w-[2px] rounded-full bg-[color:var(--danger)]" /><span className="h-[10px] w-[2px] rounded-full bg-[color:var(--danger)]" /></span></span>
               <div className="min-w-0">
                 <div className="text-[11px] font-medium leading-4">You</div>
-                <div className="truncate text-[11px] leading-4 text-[#777]">changed priority from No priority to Ur...</div>
+                <div className="truncate text-[11px] leading-4 text-[color:var(--text-muted)]">changed priority from No priority to Ur...</div>
               </div>
             </div>
             <div className="mt-3 flex items-start gap-2">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white">A</span>
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--primary)] text-[9px] text-white">A</span>
               <div className="min-w-0">
                 <div className="text-[11px] font-medium leading-4">You</div>
-                <div className="text-[11px] leading-4 text-[#777]">posted an update · Aug 2026</div>
+                <div className="text-[11px] leading-4 text-[color:var(--text-muted)]">posted an update · Aug 2026</div>
               </div>
             </div>
             </> : null}
