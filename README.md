@@ -1,36 +1,96 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AbleSpace Assessment
+
+Task management workspace built for the AbleSpace full-stack assessment.
+
+## Overview
+
+This workspace contains:
+
+- this folder - Next.js frontend (App Router, Tailwind CSS)
+- the sibling `api/` project - NestJS backend with Prisma and validation
+
+The implementation focuses on Figma-aligned UI, guest login, theme persistence, responsive layouts, reusable components, and clean API structure.
+
+## Features
+
+- Guest login with persisted session cookie
+- Theme switching with persisted color mode
+- Responsive task board, list, projects, and profile views
+- Reusable UI primitives and shared modal/form components
+- NestJS API with DTO validation and guarded task routes
+- Prisma-backed persistence with seed data for guest sessions
+
+## Tech Stack
+
+- Frontend: Next.js 15, React 19, TypeScript, Tailwind CSS
+- Backend: NestJS, Prisma, TypeScript
+- Data layer: Prisma with a relational database
+
+## Project Structure
+
+```text
+./
+  src/
+    app/           # Next.js App Router entry points
+    components/    # Feature and reusable UI components
+    lib/           # API client, types, and utilities
+```
 
 ## Getting Started
 
-First, run the development server:
+### Frontend
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Backend
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cd ../api
+npm install
+npm run start:dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment Variables
 
-## Learn More
+Frontend:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:3001/api
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Backend:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+PORT=3001
+FRONTEND_ORIGIN=http://localhost:3000
+DATABASE_URL=your-database-connection-string
+```
 
-## Deploy on Vercel
+## Validation and API Notes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Global `ValidationPipe` is enabled in NestJS.
+- DTOs use `class-validator` decorators for request validation.
+- Auth is cookie-based for guest sessions.
+- Task routes are protected by a token guard.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Theme and Responsiveness
+
+- Theme state is managed through `next-themes` and persists across refreshes.
+- Layouts adapt for desktop, tablet, and mobile.
+- Desktop and mobile interactions are handled separately where needed.
+
+## Intentional Deviations
+
+Document any Figma deviations here before final submission.
+
+## Part 2 Submission
+
+Add the required Part 2 document or video walkthrough to the repository or submission bundle before final delivery.
+
+## Notes
+
+- This project was built to be explainable in an interview.
+- Keep the deployed URL public and accessible for at least 45 days after submission.
