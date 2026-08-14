@@ -93,7 +93,7 @@ export function DatePickerField({ value, onChange, placeholder = "dd / mm / yyyy
       </button>
 
       {open ? (
-        <div className="absolute bottom-[calc(100%+8px)] right-0 z-50 w-72 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-[color:var(--text)] shadow-2xl">
+        <div className="absolute bottom-[calc(100%+8px)] left-0 z-50 w-[min(18rem,calc(100vw-2rem))] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-[color:var(--text)] shadow-2xl sm:left-auto sm:right-0 sm:w-72">
           <div className="flex items-center justify-between pb-3">
             <button type="button" className="rounded-full p-1 hover:bg-[color:var(--surface-2)]" onClick={previousMonth} aria-label="Previous month">
               <ChevronLeft size={16} />

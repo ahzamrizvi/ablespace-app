@@ -198,6 +198,7 @@ export function AssessmentApp() {
   const [openSubMenu, setOpenSubMenu] = useState<"theme" | "color" | null>(null);
   const [settingsTab, setSettingsTab] = useState<"profile" | "theme" | "color">("profile");
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     const storedAccent = window.localStorage.getItem(accentKey) as Accent | null;
@@ -279,6 +280,10 @@ export function AssessmentApp() {
     return () => window.clearTimeout(handler);
   }, [taskQuery, taskStatus, taskPriority, view]);
 
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [view]);
+
   const activeTask = useMemo(
     () => tasks.find((task) => task.id === selectedTaskId) ?? tasks[0] ?? null,
     [selectedTaskId, tasks],
@@ -327,6 +332,7 @@ export function AssessmentApp() {
     setTaskError(null);
     setOpenMenu(null);
     setOpenSubMenu(null);
+    setMobileSidebarOpen(false);
     window.localStorage.removeItem("able-space.guest-session");
   }
 
@@ -438,7 +444,16 @@ export function AssessmentApp() {
   return (
     <div className="min-h-screen bg-[color:var(--background)] text-[color:var(--text)]">
       <div className="flex min-h-screen overflow-hidden">
-        <aside className={`${view === "profile" ? "hidden" : sidebarVisible ? "lg:flex" : "lg:hidden"} hidden w-[264px] shrink-0 border-r border-[color:var(--border)] bg-[color:var(--surface-2)] px-3 py-3 lg:flex-col`}>
+        {view !== "profile" && mobileSidebarOpen ? (
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+            aria-label="Close sidebar"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        ) : null}
+
+        <aside className={`${view === "profile" ? "hidden" : mobileSidebarOpen ? "flex" : "hidden"} ${view === "profile" ? "hidden" : sidebarVisible ? "lg:flex" : "lg:hidden"} fixed inset-y-0 left-0 z-50 w-[min(264px,calc(100vw-3rem))] shrink-0 flex-col overflow-y-auto border-r border-[color:var(--border)] bg-[color:var(--surface-2)] px-3 py-3 shadow-2xl lg:static lg:z-auto lg:w-[264px] lg:overflow-visible lg:shadow-none`}>
           <div className="relative">
             <button
               type="button"
@@ -486,14 +501,14 @@ export function AssessmentApp() {
             </button>
             {openMenu === "workspace" ? (
               <div className="mt-1 grid gap-1 pl-2">
-                <SidebarButton active={view === "tasks"} icon={TasksNavIcon} label="Tasks" onClick={() => setView("tasks")} />
-                <SidebarButton active={view === "projects"} icon={ProjectsNavIcon} label="Projects" onClick={() => setView("projects")} />
+                <SidebarButton active={view === "tasks"} icon={TasksNavIcon} label="Tasks" onClick={() => { setView("tasks"); setMobileSidebarOpen(false); }} />
+                <SidebarButton active={view === "projects"} icon={ProjectsNavIcon} label="Projects" onClick={() => { setView("projects"); setMobileSidebarOpen(false); }} />
               </div>
             ) : null}
           </div>
 
           <div className="mt-auto hidden rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-2)] p-3">
-            <button className="flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left hover:bg-[color:var(--surface)]" onClick={() => setView("profile") }>
+              <button className="flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left hover:bg-[color:var(--surface)]" onClick={() => { setView("profile"); setMobileSidebarOpen(false); }}>
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--primary)] text-white">{displayProfile.name.slice(0, 1)}</div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{displayProfile.name}</p>
@@ -514,25 +529,23 @@ export function AssessmentApp() {
         <main className="min-w-0 flex-1 overflow-auto bg-[color:var(--background)]">
           <div>
             {view !== "profile" ? (
-              <header className="flex h-[42px] items-center justify-between gap-3 border-b border-[color:var(--border)] px-3">
+              <header className="flex min-h-[42px] flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border)] px-3 py-2">
                 <div className="flex items-center gap-3">
-                  <button className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--border)] lg:hidden" onClick={() => setOpenMenu(openMenu === "workspace" ? null : "workspace") }>
+                  <button className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--border)] lg:hidden" aria-expanded={mobileSidebarOpen} onClick={() => setMobileSidebarOpen((current) => !current)}>
                     <Menu size={18} />
                   </button>
-                <div>
+                  <div>
                   {view === "tasks" || view === "task-detail" ? (
                     <>
-                      <button className="flex h-7 w-7 items-center justify-center text-[color:var(--text)] hover:bg-[color:var(--surface-2)]" onClick={() => setSidebarVisible((current) => !current)} aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}>
+                      <button className="hidden h-7 w-7 items-center justify-center text-[color:var(--text)] hover:bg-[color:var(--surface-2)] lg:flex" onClick={() => setSidebarVisible((current) => !current)} aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}>
                         <PanelLeft size={13} strokeWidth={1.8} />
                       </button>
-                      <span className="h-3 w-px bg-[#d9d9d9]" aria-hidden="true" />
                     </>
                   ) : view === "projects" ? (
                     <>
-                      <button className="flex h-7 w-7 items-center justify-center text-[color:var(--text)] hover:bg-[color:var(--surface-2)]" onClick={() => setSidebarVisible((current) => !current)} aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}>
+                      <button className="hidden h-7 w-7 items-center justify-center text-[color:var(--text)] hover:bg-[color:var(--surface-2)] lg:flex" onClick={() => setSidebarVisible((current) => !current)} aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}>
                         <PanelLeft size={13} strokeWidth={1.8} />
                       </button>
-                      <span className="h-3 w-px bg-[#d9d9d9]" aria-hidden="true" />
                     </>
                   ) : (
                     <>
@@ -540,12 +553,12 @@ export function AssessmentApp() {
                       <h1 className="text-xl font-semibold sm:text-2xl">Profile</h1>
                     </>
                   )}
-                </div>
+                  </div>
                 </div>
               </header>
             ) : null}
 
-            <div className={view === "profile" ? "px-0 py-0" : "px-4 py-5"}>
+            <div className={view === "profile" ? "px-0 py-0" : "px-3 py-4 sm:px-4 sm:py-5"}>
               {view === "tasks" ? (
                 <TasksScreen
                   user={user}
@@ -696,7 +709,7 @@ function UserMenu({ profile, accent, onAccentChange, onThemeChange, onNavigatePr
   }, [onClose]);
 
   return (
-    <div data-user-menu className="absolute left-0 top-[calc(100%+10px)] z-50 flex items-start gap-2">
+    <div data-user-menu className="absolute left-0 top-[calc(100%+10px)] z-50 flex items-start gap-4">
       <div className="w-[246px] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl">
           <div className="border-b border-[color:var(--border)] px-3 py-4 text-center">
           {profile.photo ? (
@@ -712,7 +725,7 @@ function UserMenu({ profile, accent, onAccentChange, onThemeChange, onNavigatePr
           <div className="relative">
             <MenuItem icon={SunMedium} label="Change Theme" onClick={() => setSubmenu(submenu === "theme" ? null : "theme")} />
             {submenu === "theme" ? (
-              <div className="absolute left-[calc(100%+16px)] top-0 w-[210px] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl">
+              <div className="mt-1 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-sm sm:absolute sm:left-[calc(100%+24px)] sm:top-0 sm:mt-0 sm:w-[210px] sm:shadow-2xl">
                 <div className="px-3 py-2 text-sm text-[color:var(--text-muted)]">Theme</div>
                 <SubMenuItem icon={SunMedium} label="Light" selected={currentTheme === "light"} onClick={() => onThemeChange("light")} />
                 <SubMenuItem icon={MoonStar} label="Dark" selected={currentTheme === "dark"} onClick={() => onThemeChange("dark")} />
@@ -722,7 +735,7 @@ function UserMenu({ profile, accent, onAccentChange, onThemeChange, onNavigatePr
           <div className="relative mt-1">
             <MenuItem icon={Palette} label="Color Mode" onClick={() => setSubmenu(submenu === "color" ? null : "color")} />
             {submenu === "color" ? (
-              <div className="absolute left-[calc(100%+16px)] top-0 w-[210px] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl">
+              <div className="mt-1 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-sm sm:absolute sm:left-[calc(100%+24px)] sm:top-0 sm:mt-0 sm:w-[210px] sm:shadow-2xl">
                 <div className="px-3 py-2 text-sm text-[color:var(--text-muted)]">Color Mode</div>
                 {accentOptions.map((option) => (
                   <SubMenuItem key={option.value} label={option.label} swatch={option.value} selected={accent === option.value} onClick={() => onAccentChange(option.value)} />
@@ -906,19 +919,19 @@ function TasksScreen({
   return (
     <div className="w-full space-y-3">
       <section className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <h2 className="text-xs font-semibold tracking-tight">Tasks</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button className="flex h-7 w-7 items-center justify-center rounded border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)]" onClick={() => setSearchOpen((current) => !current)} aria-label="Search tasks">
               <Search size={12} />
             </button>
-            {searchOpen ? <div className="relative"><Search size={12} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[color:var(--text-muted)]" /><Input className="h-7 w-[260px] rounded border-[color:var(--border)] py-0 pl-7 pr-2 text-xs" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search tasks" autoFocus /></div> : null}
+            {searchOpen ? <div className="relative w-full sm:w-auto"><Search size={12} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[color:var(--text-muted)]" /><Input className="h-7 w-full rounded border-[color:var(--border)] py-0 pl-7 pr-2 text-xs sm:w-[260px]" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search tasks" autoFocus /></div> : null}
             <div ref={fieldsMenuRef} className="relative">
               <button className="flex h-7 items-center gap-1.5 rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-[10px]" onClick={() => setFieldsOpen((current) => !current)}>
                 <Columns3 size={11} /> Fields
               </button>
               {fieldsOpen ? (
-                <Card className="absolute right-0 top-[calc(100%+8px)] z-30 w-[270px] p-2 shadow-[0_16px_50px_rgba(15,23,42,0.14)]">
+                <Card className="absolute left-0 top-[calc(100%+8px)] z-30 w-[min(270px,calc(100vw-2rem))] p-2 shadow-[0_16px_50px_rgba(15,23,42,0.14)] sm:left-auto sm:right-0 sm:w-[270px]">
                   <div className="flex overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-sm">
                     <button className={`flex flex-1 items-center justify-center gap-2 px-3 py-2 ${columnView === "list" ? "bg-[color:var(--surface-2)] font-medium" : ""}`} onClick={() => { setColumnView("list"); setMode("list"); }}>
                       <List size={14} /> List
@@ -949,7 +962,7 @@ function TasksScreen({
         </div>
 
         {filterOpen ? (
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <select className="h-8 rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs" value={status} onChange={(event) => setStatus(event.target.value as TaskStatus | "")}><option value="">All statuses</option><option value="TODO">To Do</option><option value="IN_PROGRESS">Doing</option><option value="DONE">Completed</option><option value="ON_HOLD">On Hold</option></select>
             <select className="h-8 rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs" value={priority} onChange={(event) => setPriority(event.target.value as TaskPriority | "")}><option value="">All priorities</option><option value="HIGH">High</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option></select>
           </div>
@@ -958,40 +971,79 @@ function TasksScreen({
         {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
         {mode === "board" ? (
-          <div className="overflow-x-auto pb-2">
-            <div className="flex min-w-max gap-3">
-            {columnOrder.map((key) => {
-              const label = taskStatusLabels[key];
-              return <Card key={key} data-board-column className={`w-[289px] self-start rounded-[18px] border bg-[color:var(--surface-2)] p-2 shadow-none ${draggedColumn === key ? "border-[color:var(--text)] opacity-60 ring-2 ring-[color:var(--text)]/10" : columnDropTarget?.key === key ? columnDropTarget.position === "before" ? "border-l-4 border-l-[color:var(--text)] border-[color:var(--border)]" : "border-r-4 border-r-[color:var(--text)] border-[color:var(--border)]" : "border-[color:var(--border)]"}`} onDragOver={(event) => handleColumnDragOver(event, key)} onDragLeave={() => setColumnDropTarget((current) => current?.key === key ? null : current)} onDrop={() => handleColumnDrop(key)}>
-                <div className="mb-2 flex items-center justify-between px-1 py-1 text-sm font-medium">
-                  <span className="flex items-center gap-2">
-                    <button
-                      draggable
-                      className="cursor-grab text-[10px] text-[color:var(--text-muted)] active:cursor-grabbing"
-                      onDragStart={(event) => handleColumnDragStart(event, key, label)}
-                      onDragEnd={() => {
-                        setDraggedColumn(null);
-                        setColumnDropTarget(null);
-                      }}
-                      aria-label={`Drag ${label} column`}
-                    >
-                      ⠿
-                    </button>
-                    {label}
-                  </span>
-                  <div data-task-menu className="flex items-center gap-2 text-[color:var(--text-muted)]">
-                    <button onClick={() => onCreate(key as TaskStatus)} aria-label={`Add task to ${label}`}><Plus size={14} /></button>
-                    <button onClick={() => setCardMenuId(cardMenuId === `column-${key}` ? null : `column-${key}`)} aria-label={`${label} options`}><MoreHorizontal size={14} /></button>
+          <div className="space-y-3 pb-2">
+            <div className="grid gap-3 lg:hidden">
+              {columnOrder.map((key) => {
+                const label = taskStatusLabels[key];
+                return <Card key={key} data-board-column className={`w-full self-start rounded-[18px] border bg-[color:var(--surface-2)] p-2 shadow-none ${draggedColumn === key ? "border-[color:var(--text)] opacity-60 ring-2 ring-[color:var(--text)]/10" : columnDropTarget?.key === key ? columnDropTarget.position === "before" ? "border-l-4 border-l-[color:var(--text)] border-[color:var(--border)]" : "border-r-4 border-r-[color:var(--text)] border-[color:var(--border)]" : "border-[color:var(--border)]"}`} onDragOver={(event) => handleColumnDragOver(event, key)} onDragLeave={() => setColumnDropTarget((current) => current?.key === key ? null : current)} onDrop={() => handleColumnDrop(key)}>
+                  <div className="mb-2 flex items-center justify-between px-1 py-1 text-sm font-medium">
+                    <span className="flex items-center gap-2">
+                      <button
+                        draggable
+                        className="cursor-grab text-[10px] text-[color:var(--text-muted)] active:cursor-grabbing"
+                        onDragStart={(event) => handleColumnDragStart(event, key, label)}
+                        onDragEnd={() => {
+                          setDraggedColumn(null);
+                          setColumnDropTarget(null);
+                        }}
+                        aria-label={`Drag ${label} column`}
+                      >
+                        ⠿
+                      </button>
+                      {label}
+                    </span>
+                    <div data-task-menu className="flex items-center gap-2 text-[color:var(--text-muted)]">
+                      <button onClick={() => onCreate(key as TaskStatus)} aria-label={`Add task to ${label}`}><Plus size={14} /></button>
+                      <button onClick={() => setCardMenuId(cardMenuId === `column-${key}` ? null : `column-${key}`)} aria-label={`${label} options`}><MoreHorizontal size={14} /></button>
+                    </div>
                   </div>
+                  <div className="space-y-2.5">
+                    {grouped[key as keyof typeof grouped].map((task) => (
+                      <TaskBoardCard key={task.id} task={task} fields={visibleFields} menuOpen={cardMenuId === task.id} onClick={() => onOpenDetail(task)} onMenu={() => setCardMenuId(cardMenuId === task.id ? null : task.id)} onEdit={() => onEdit(task)} onDelete={() => onDelete(task.id)} />
+                    ))}
+                    <button className="flex h-7 w-full items-center px-2 text-[10px] font-medium text-[color:var(--text-muted)] hover:text-[color:var(--text)]" onClick={() => onCreate(key as TaskStatus)}>+ Add Task</button>
+                  </div>
+                </Card>;
+              })}
+            </div>
+
+            <div className="hidden lg:block">
+              <div className="overflow-x-auto pb-2">
+                <div className="flex min-w-max gap-3">
+                  {columnOrder.map((key) => {
+                    const label = taskStatusLabels[key];
+                    return <Card key={key} data-board-column className={`w-[289px] self-start rounded-[18px] border bg-[color:var(--surface-2)] p-2 shadow-none ${draggedColumn === key ? "border-[color:var(--text)] opacity-60 ring-2 ring-[color:var(--text)]/10" : columnDropTarget?.key === key ? columnDropTarget.position === "before" ? "border-l-4 border-l-[color:var(--text)] border-[color:var(--border)]" : "border-r-4 border-r-[color:var(--text)] border-[color:var(--border)]" : "border-[color:var(--border)]"}`} onDragOver={(event) => handleColumnDragOver(event, key)} onDragLeave={() => setColumnDropTarget((current) => current?.key === key ? null : current)} onDrop={() => handleColumnDrop(key)}>
+                      <div className="mb-2 flex items-center justify-between px-1 py-1 text-sm font-medium">
+                        <span className="flex items-center gap-2">
+                          <button
+                            draggable
+                            className="cursor-grab text-[10px] text-[color:var(--text-muted)] active:cursor-grabbing"
+                            onDragStart={(event) => handleColumnDragStart(event, key, label)}
+                            onDragEnd={() => {
+                              setDraggedColumn(null);
+                              setColumnDropTarget(null);
+                            }}
+                            aria-label={`Drag ${label} column`}
+                          >
+                            ⠿
+                          </button>
+                          {label}
+                        </span>
+                        <div data-task-menu className="flex items-center gap-2 text-[color:var(--text-muted)]">
+                          <button onClick={() => onCreate(key as TaskStatus)} aria-label={`Add task to ${label}`}><Plus size={14} /></button>
+                          <button onClick={() => setCardMenuId(cardMenuId === `column-${key}` ? null : `column-${key}`)} aria-label={`${label} options`}><MoreHorizontal size={14} /></button>
+                        </div>
+                      </div>
+                      <div className="space-y-2.5">
+                        {grouped[key as keyof typeof grouped].map((task) => (
+                          <TaskBoardCard key={task.id} task={task} fields={visibleFields} menuOpen={cardMenuId === task.id} onClick={() => onOpenDetail(task)} onMenu={() => setCardMenuId(cardMenuId === task.id ? null : task.id)} onEdit={() => onEdit(task)} onDelete={() => onDelete(task.id)} />
+                        ))}
+                        <button className="flex h-7 w-full items-center px-2 text-[10px] font-medium text-[color:var(--text-muted)] hover:text-[color:var(--text)]" onClick={() => onCreate(key as TaskStatus)}>+ Add Task</button>
+                      </div>
+                    </Card>;
+                  })}
                 </div>
-                <div className="space-y-2.5">
-                  {grouped[key as keyof typeof grouped].map((task) => (
-                    <TaskBoardCard key={task.id} task={task} fields={visibleFields} menuOpen={cardMenuId === task.id} onClick={() => onOpenDetail(task)} onMenu={() => setCardMenuId(cardMenuId === task.id ? null : task.id)} onEdit={() => onEdit(task)} onDelete={() => onDelete(task.id)} />
-                  ))}
-                  <button className="flex h-7 w-full items-center px-2 text-[10px] font-medium text-[color:var(--text-muted)] hover:text-[color:var(--text)]" onClick={() => onCreate(key as TaskStatus)}>+ Add Task</button>
-                </div>
-              </Card>;
-            })}
+              </div>
             </div>
           </div>
         ) : (
@@ -1006,6 +1058,32 @@ function TasksScreen({
                   <button className="flex items-center gap-1.5" onClick={() => setCollapsedSections((current) => ({ ...current, [key]: !current[key] }))}><ChevronDown size={12} className={collapsedSections[key] ? "-rotate-90" : ""} />{label}</button>
                 </div>
                 {!collapsedSections[key] ? <div className="overflow-hidden rounded-lg border border-[color:var(--border)]">
+                  <div className="grid gap-3 p-3 lg:hidden">
+                    {(grouped[key as keyof typeof grouped] ?? []).map((task) => (
+                      <Card key={task.id} className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <button className="text-left font-medium" onClick={() => onOpenDetail(task)}>{task.title}</button>
+                            <p className="mt-1 text-xs text-[color:var(--text-muted)]">{task.description || "No description"}</p>
+                          </div>
+                          <button className="text-[color:var(--text-muted)]" onClick={() => setCardMenuId(cardMenuId === task.id ? null : task.id)} aria-label={`Actions for ${task.title}`}>
+                            <MoreHorizontal size={14} />
+                          </button>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                          <Badge className={task.status === "TODO" ? "bg-amber-500/10 text-amber-700 dark:text-amber-300" : task.status === "IN_PROGRESS" ? "bg-sky-500/10 text-sky-700 dark:text-sky-300" : task.status === "DONE" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-zinc-500/10 text-zinc-700 dark:text-zinc-300"}>{taskStatusLabels[task.status]}</Badge>
+                          <Badge className={task.priority === "HIGH" ? "bg-rose-500/10 text-rose-700 dark:text-rose-300" : task.priority === "MEDIUM" ? "bg-violet-500/10 text-violet-700 dark:text-violet-300" : "bg-zinc-500/10 text-zinc-700 dark:text-zinc-300"}>{taskPriorityLabel[task.priority]}</Badge>
+                          <span className="text-[color:var(--text-muted)]">{task.dueDate ? new Date(task.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : fallbackDueDate(`${task.id}-${task.title}`)}</span>
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <Button variant="secondary" size="sm" onClick={() => onEdit(task)}>Edit</Button>
+                          <Button variant="secondary" size="sm" onClick={() => onDelete(task.id)}>Delete</Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+
+                  <div className="hidden lg:block">
                   <table className="min-w-full text-xs">
                     <thead className="bg-[color:var(--surface-2)] text-left text-xs text-[color:var(--text)]">
                       <tr>
@@ -1029,6 +1107,7 @@ function TasksScreen({
                     </tbody>
                   </table>
                   <button className="w-full border-t border-[color:var(--border)] px-3 py-2 text-left text-xs text-[color:var(--text)] hover:bg-[color:var(--surface-2)]" onClick={() => onCreate(key)}>+ Add Task</button>
+                  </div>
                 </div> : null}
               </section>
             ))}
@@ -1321,9 +1400,9 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
       <button className="sr-only" onClick={onBack}>Back to tasks</button>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <section>
-          <div className="flex items-start justify-between gap-4 pr-2">
-            <div><h1 className="text-xl font-semibold tracking-tight">{task.title}</h1><p className="mt-1 max-w-xl text-xs leading-4 text-[#777]">{task.description || "Create clear and detailed API documentation to guide developers in using the inventory and sales metrics features effectively."}</p></div>
-            <div className="absolute right-0 top-0 flex items-center gap-1 pb-4">
+          <div className="flex flex-col gap-4 pr-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0"><h1 className="text-xl font-semibold tracking-tight">{task.title}</h1><p className="mt-1 max-w-xl text-xs leading-4 text-[#777]">{task.description || "Create clear and detailed API documentation to guide developers in using the inventory and sales metrics features effectively."}</p></div>
+            <div className="flex flex-wrap items-center justify-end gap-1">
                <button className={`flex h-7 w-7 items-center justify-center rounded border hover:bg-[#f5f5f5] ${locked ? "border-[#181818] bg-[#181818] text-white" : "border-[#e8e8e8]"}`} onClick={toggleLock} aria-label="Lock task"><Lock size={14} strokeWidth={2} /></button>
                <button className="flex h-7 items-center gap-1 rounded border border-[#e8e8e8] px-2 text-[#5968ff] hover:bg-[#f5f5f5]" onClick={toggleWatch} aria-label="Watch task"><Eye size={14} strokeWidth={2} /> <span className="text-xs">{watchCount}</span></button>
                <button className="flex h-7 w-7 items-center justify-center rounded border border-[#e8e8e8] hover:bg-[#f5f5f5]" onClick={() => { void shareTask(); }} aria-label="Share task"><Share2 size={14} strokeWidth={2} /></button>
@@ -1340,14 +1419,14 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
             <span className={subtasksOpen ? "transition-transform" : "-rotate-90 transition-transform"}><FilledCaretDown /></span>
             Subtasks
           </button>
-          {subtasksOpen ? <div className="mt-2 max-w-[720px] overflow-visible rounded-md border border-[#e8e8e8]">
+          {subtasksOpen ? <div className="mt-2 w-full overflow-visible rounded-md border border-[#e8e8e8]">
             <table className="min-w-full text-xs"><thead className="bg-[#f5f5f5]"><tr><th className="px-3 py-2 text-left font-medium">Task</th><th className="px-3 py-2 text-left font-medium">Priority</th><th className="px-3 py-2 text-left font-medium">Members</th><th className="px-3 py-2 text-left font-medium">Due Date</th><th className="px-3 py-2 text-right font-medium">Actions</th></tr></thead><tbody>{subtasks.map((item, index) => <tr key={item.id} className="border-t border-[#e8e8e8]"><td className="px-3 py-2">{item.title}</td><td className={`px-3 py-2 ${index === 0 ? "text-red-500" : index === 1 ? "text-zinc-400" : "text-orange-500"}`}><PrioritySignal priority={item.priority} /> {index === 0 ? "High" : index === 1 ? "Low" : "Medium"}</td><td className="px-3 py-2">{index === 0 ? <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white"><UserCircle2 size={12} strokeWidth={2} /></span> : <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#e8e8e8] bg-white text-[11px] font-medium text-[#181818]">{item.member}</span>}</td><td className="px-3 py-2">{item.dueDate}</td><td className="relative px-3 py-2 text-right"><div data-subtask-menu className="relative inline-flex overflow-visible"><button className="inline-flex h-5 w-5 items-center justify-center rounded p-0 leading-none hover:bg-[#f5f5f5]" aria-label={`Actions for ${item.title}`} onClick={() => setSubtaskMenuOpen((current) => current === item.id ? null : item.id)}><MoreHorizontal size={14} className="translate-y-[0.5px]" /></button>{subtaskMenuOpen === item.id ? <div className="absolute right-0 top-6 z-50 grid w-24 rounded border border-[#e8e8e8] bg-white p-1 text-left text-[10px] shadow-lg"><button className="rounded px-2 py-1 hover:bg-[#f5f5f5]" onClick={() => duplicateSubtask(item.id)}>Duplicate</button><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={() => openEditSubtask(item.id)}>Edit</button><button className="rounded px-2 py-1 text-left text-red-600 hover:bg-[#fef2f2]" onClick={() => deleteSubtask(item.id)}>Delete</button></div> : null}</div></td></tr>)}</tbody></table><button className="w-full border-t border-[#e8e8e8] px-3 py-2 text-left text-xs" onClick={openAddSubtask}>+ Add Subtask</button>
           </div> : null}
           <button className="mt-6 inline-flex items-center gap-1 text-xs font-semibold" onClick={() => setUpdatesOpen((current) => !current)} aria-expanded={updatesOpen}>
             <span className={updatesOpen ? "transition-transform" : "-rotate-90 transition-transform"}><FilledCaretDown /></span>
             Updates
           </button>
-          {updatesOpen ? <div className="mt-2 max-w-[720px] overflow-visible rounded-md border border-[#e8e8e8] text-xs">
+          {updatesOpen ? <div className="mt-2 w-full overflow-visible rounded-md border border-[#e8e8e8] text-xs">
             <div className="relative flex items-start justify-between px-3 py-2.5">
               <div className="flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-[9px] text-white">A</span>
@@ -1374,19 +1453,19 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
                 <button aria-label="Send reply" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]" onClick={sendReply}><Send size={14} /></button>
               </div>
             </div>
-            {replies.length > 0 ? <div className="space-y-2 border-t border-[#e8e8e8] px-3 py-2.5">{replies.map((item, index) => <div key={`${item}-${index}`} className="rounded-md bg-[#fafafa] px-2 py-1.5 text-[11px] text-[#181818]">{item}</div>)}</div> : null}
+            {replies.length > 0 ? <div className="w-full space-y-2 border-t border-[#e8e8e8] px-3 py-2.5">{replies.map((item, index) => <div key={`${item}-${index}`} className="rounded-md bg-[#fafafa] px-2 py-1.5 text-[11px] text-[#181818]">{item}</div>)}</div> : null}
           </div> : null}
-          <div className="mt-3 max-w-[720px] rounded-md border border-[#e8e8e8] px-3 py-3 text-xs text-[#777]">
+          <div className="mt-3 w-full rounded-md border border-[#e8e8e8] px-3 py-3 text-xs text-[#777]">
             <div className="flex items-center gap-2">
                 <input className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[#777]" value={comment} onChange={(event) => setComment(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") sendComment(); }} placeholder={commentAttachmentName || "Add a comment..."} />
                 <button aria-label="Attach file" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]" onClick={() => openAttachmentPicker("comment")}><Paperclip size={14} /></button>
               <button aria-label="Send comment" className="rounded p-1 text-[#181818] hover:bg-[#f5f5f5]" onClick={sendComment}><Send size={14} /></button>
             </div>
           </div>
-          {comments.length > 0 ? <div className="mt-2 max-w-[720px] space-y-2 text-xs text-[#181818]">{comments.map((item, index) => <div key={`${item}-${index}`} className="rounded-md border border-[#e8e8e8] px-3 py-2">{item}</div>)}</div> : null}
+          {comments.length > 0 ? <div className="mt-2 w-full space-y-2 text-xs text-[#181818]">{comments.map((item, index) => <div key={`${item}-${index}`} className="rounded-md border border-[#e8e8e8] px-3 py-2">{item}</div>)}</div> : null}
         </section>
-          <div className="flex w-full flex-col gap-3">
-          <aside className="mt-20 w-full rounded-md border border-[#e8e8e8] p-4 text-xs">
+          <div className="flex w-full flex-col gap-3 lg:pt-20">
+          <aside className="mt-0 w-full rounded-md border border-[#e8e8e8] p-4 text-xs">
             <div className="flex items-center justify-between border-b border-[#e8e8e8] pb-2 font-medium">
               <button className="inline-flex items-center gap-1.5" onClick={() => setDetailsOpen((current) => !current)} aria-expanded={detailsOpen}>
                 <span className={detailsOpen ? "transition-transform" : "-rotate-90 transition-transform"}><FilledCaretDown /></span> Details
@@ -1394,7 +1473,7 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
               <div data-details-actions className="relative flex items-center gap-1 text-[#181818]" onClick={(event) => event.stopPropagation()}>
                 <button className="flex h-5 w-5 items-center justify-center rounded hover:bg-[#f5f5f5]" aria-label="Add detail" onClick={() => { setDetailDraft(""); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}><Plus size={12} strokeWidth={2} /></button>
                 <button className="flex h-5 w-5 items-center justify-center rounded hover:bg-[#f5f5f5]" aria-label="Details settings" onClick={() => setDetailsMenuOpen((current) => !current)}><Settings size={12} strokeWidth={2} /></button>
-                {detailsMenuOpen ? <div className="absolute right-2 top-8 z-50 grid w-28 rounded border border-[#e8e8e8] bg-white p-1 text-[10px] shadow-lg"><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={() => { setDetailDraft("Status"); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}>Add status row</button><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={() => { setDetailDraft("Custom detail"); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}>Custom field</button></div> : null}
+                {detailsMenuOpen ? <div className="absolute right-2 top-8 z-50 grid w-[min(14rem,calc(100vw-2rem))] rounded border border-[#e8e8e8] bg-white p-1 text-[10px] shadow-lg sm:w-28"><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={() => { setDetailDraft("Status"); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}>Add status row</button><button className="rounded px-2 py-1 text-left hover:bg-[#f5f5f5]" onClick={() => { setDetailDraft("Custom detail"); setDetailDialogOpen(true); setDetailsMenuOpen(false); }}>Custom field</button></div> : null}
               </div>
             </div>
             {detailsOpen ? <div className="grid gap-2.5 pt-3">
@@ -1407,7 +1486,7 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
                     <UserPlus size={13} />
                     <span>Add members</span>
                   </button>
-                  {membersOpen ? <div className="absolute right-0 top-8 z-50 w-56 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl"><div className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">Members</div>{memberList.map((member) => <div key={member} className="flex items-center gap-2 rounded-xl px-2 py-2 text-sm hover:bg-[color:var(--surface-2)]"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-[color:var(--primary)] text-[9px] text-white">{member.slice(0, 1).toUpperCase()}</span><span className="flex-1">{member}</span></div>)}<button className="mt-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-sm hover:bg-[color:var(--surface-2)]" onClick={addMember}><UserPlus size={13} /><span>Add member</span></button></div> : null}
+                {membersOpen ? <div className="absolute right-0 top-8 z-50 w-[min(14rem,calc(100vw-2rem))] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl sm:w-56"><div className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">Members</div>{memberList.map((member) => <div key={member} className="flex items-center gap-2 rounded-xl px-2 py-2 text-sm hover:bg-[color:var(--surface-2)]"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-[color:var(--primary)] text-[9px] text-white">{member.slice(0, 1).toUpperCase()}</span><span className="flex-1">{member}</span></div>)}<button className="mt-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-sm hover:bg-[color:var(--surface-2)]" onClick={addMember}><UserPlus size={13} /><span>Add member</span></button></div> : null}
                 </div>
               </div>
               <div className="grid grid-cols-[58px_minmax(0,1fr)] items-center gap-2.5 text-sm">
@@ -1419,7 +1498,7 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
                     <span className="text-[color:var(--text-muted)]">→</span>
                     <span className="rounded-full border border-[color:var(--border)] px-2 py-0.5 text-[11px] font-medium text-[color:var(--text-muted)]">{endDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                   </button>
-                  {datesOpen ? <div data-date-picker className="absolute right-0 top-8 z-50 w-72 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-2xl"><div className="flex items-center justify-between pb-3"><button className="rounded-full p-1 hover:bg-[color:var(--surface-2)]" onClick={previousMonth} aria-label="Previous month"><ChevronLeft size={16} /></button><div className="text-sm font-semibold">{new Date(dateYear, dateMonth, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div><button className="rounded-full p-1 hover:bg-[color:var(--surface-2)]" onClick={nextMonth} aria-label="Next month"><ChevronRight size={16} /></button></div><div className="grid grid-cols-7 gap-1 text-center text-[10px] text-[color:var(--text-muted)]">{["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => <span key={day} className="py-1">{day}</span>)}</div><div className="mt-2 grid grid-cols-7 gap-1 text-sm">{Array.from({ length: 35 }).map((_, index) => { const firstOfMonth = new Date(dateYear, dateMonth, 1); const startDay = firstOfMonth.getDay(); const dayNumber = index - startDay + 1; const daysInMonth = new Date(dateYear, dateMonth + 1, 0).getDate(); const isCurrentMonth = dayNumber >= 1 && dayNumber <= daysInMonth; const currentDate = new Date(dateYear, dateMonth, dayNumber); const isSelected = isCurrentMonth && ((dateTarget === "start" && currentDate.toDateString() === startDate.toDateString()) || (dateTarget === "end" && currentDate.toDateString() === endDate.toDateString())); return <button key={index} className={`h-8 rounded-full ${isSelected ? "bg-black text-white" : isCurrentMonth ? "hover:bg-[color:var(--surface-2)]" : "text-[color:var(--text-muted)]"}`} disabled={!isCurrentMonth} onClick={() => dateTarget === "start" ? setStartDate(currentDate) : setEndDate(currentDate)}>{isCurrentMonth ? dayNumber : ""}</button>; })}</div></div> : null}
+                  {datesOpen ? <div data-date-picker className="absolute right-0 top-8 z-50 w-[min(18rem,calc(100vw-2rem))] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-2xl sm:w-72"><div className="flex items-center justify-between pb-3"><button className="rounded-full p-1 hover:bg-[color:var(--surface-2)]" onClick={previousMonth} aria-label="Previous month"><ChevronLeft size={16} /></button><div className="text-sm font-semibold">{new Date(dateYear, dateMonth, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div><button className="rounded-full p-1 hover:bg-[color:var(--surface-2)]" onClick={nextMonth} aria-label="Next month"><ChevronRight size={16} /></button></div><div className="grid grid-cols-7 gap-1 text-center text-[10px] text-[color:var(--text-muted)]">{["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => <span key={day} className="py-1">{day}</span>)}</div><div className="mt-2 grid grid-cols-7 gap-1 text-sm">{Array.from({ length: 35 }).map((_, index) => { const firstOfMonth = new Date(dateYear, dateMonth, 1); const startDay = firstOfMonth.getDay(); const dayNumber = index - startDay + 1; const daysInMonth = new Date(dateYear, dateMonth + 1, 0).getDate(); const isCurrentMonth = dayNumber >= 1 && dayNumber <= daysInMonth; const currentDate = new Date(dateYear, dateMonth, dayNumber); const isSelected = isCurrentMonth && ((dateTarget === "start" && currentDate.toDateString() === startDate.toDateString()) || (dateTarget === "end" && currentDate.toDateString() === endDate.toDateString())); return <button key={index} className={`h-8 rounded-full ${isSelected ? "bg-black text-white" : isCurrentMonth ? "hover:bg-[color:var(--surface-2)]" : "text-[color:var(--text-muted)]"}`} disabled={!isCurrentMonth} onClick={() => dateTarget === "start" ? setStartDate(currentDate) : setEndDate(currentDate)}>{isCurrentMonth ? dayNumber : ""}</button>; })}</div></div> : null}
                 </div>
               </div>
               <DetailRow label="Labels" value={<span className="inline-flex items-center gap-1.5">Deployment</span>} />
@@ -1557,11 +1636,11 @@ function ProjectsScreen({
 
   return (
     <div className="space-y-4 pt-0">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-semibold text-[color:var(--text)]">Projects</h2>
         </div>
-        <div className="relative flex items-center gap-2">
+        <div className="relative flex flex-wrap items-center gap-2">
           <div ref={fieldsMenuRef} className="relative">
             <button type="button" className="flex h-9 items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.03)]" onClick={() => setFieldsOpen((current) => !current)}>
               <List size={14} /> Fields
@@ -1577,7 +1656,7 @@ function ProjectsScreen({
           <Button type="button" className="h-9 rounded-xl bg-[#181818] px-4 text-white hover:bg-[#111]" onClick={handleOpenAdd}><Plus size={14} /> Add Project</Button>
 
           {fieldsOpen ? (
-            <Card data-project-fields-menu className="absolute right-[118px] top-11 z-20 w-[220px] p-2 shadow-2xl">
+            <Card data-project-fields-menu className="absolute left-0 top-11 z-20 w-[min(220px,calc(100vw-2rem))] p-2 shadow-2xl sm:left-auto sm:right-[118px] sm:w-[220px]">
               {[
                 ["priority", "Priority"],
                 ["lead", "Lead"],
@@ -1598,7 +1677,7 @@ function ProjectsScreen({
           ) : null}
 
           {filterOpen ? (
-            <Card data-project-filter-menu className="absolute right-[218px] top-11 z-20 w-[180px] p-2 shadow-2xl">
+            <Card data-project-filter-menu className="absolute left-0 top-11 z-20 w-[min(180px,calc(100vw-2rem))] p-2 shadow-2xl sm:left-auto sm:right-[218px] sm:w-[180px]">
               {(["All", "High", "Medium", "Low"] as const).map((item) => (
                 <button
                   key={item}
@@ -1619,8 +1698,52 @@ function ProjectsScreen({
       </div>
 
       <div className="grid gap-4">
+        <div className="grid gap-3 lg:hidden">
+          {visibleProjects.map((project) => (
+            <Card key={project.id} className={`p-4 ${selectedProject?.id === project.id ? "border-[color:var(--primary)]" : ""}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <button type="button" className="text-left font-medium" onClick={() => setSelectedProjectId(project.id)}>{project.name}</button>
+                  <div className="mt-1 text-xs text-[color:var(--text-muted)]">Lead {project.lead}</div>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-md p-2 text-[color:var(--text-muted)] hover:bg-[color:var(--surface-2)]"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (actionMenuProjectId === project.id) {
+                      setActionMenuProjectId(null);
+                      setActionMenuPosition(null);
+                      return;
+                    }
+
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    const menuWidth = 176;
+                    const menuHeight = 88;
+                    const top = rect.bottom + menuHeight > window.innerHeight ? Math.max(8, rect.top - menuHeight - 8) : rect.bottom + 8;
+                    const left = Math.min(Math.max(8, rect.right - menuWidth), window.innerWidth - menuWidth - 8);
+
+                    setActionMenuProjectId(project.id);
+                    setActionMenuPosition({ top, left });
+                  }}
+                >
+                  <MoreHorizontal size={14} />
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                {visibleFields.priority ? <Badge className={project.priority === "High" ? "bg-rose-500/10 text-rose-600" : project.priority === "Medium" ? "bg-amber-500/10 text-amber-600" : "bg-zinc-500/10 text-zinc-600"}>{project.priority}</Badge> : null}
+                {visibleFields.dueDate ? <Badge className="bg-[color:var(--surface-2)] text-[color:var(--text-muted)]">{project.dueDate}</Badge> : null}
+              </div>
+              <div className="mt-4 flex items-center justify-between gap-2">
+                <Button variant="secondary" size="sm" onClick={() => handleEditProject(project)}>Edit</Button>
+                <Button variant="secondary" size="sm" onClick={() => handleDeleteProject(project.id)}>Delete</Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+
         <Card className="overflow-hidden rounded-3xl">
-          <table className="min-w-full text-sm">
+          <table className="hidden min-w-full text-sm lg:table">
                     <thead className="bg-[color:var(--surface-2)] text-left text-xs text-[color:var(--text-muted)]">
               <tr>
                 <th className="px-4 py-3 font-medium">Projects</th>
@@ -1763,17 +1886,17 @@ function ProfileScreen({
   }
 
   return (
-    <div className="grid gap-0 lg:grid-cols-[264px_minmax(0,1fr)] lg:items-stretch">
-      <aside data-profile-sidebar className="relative min-h-screen rounded-none border-r border-[#ececec] bg-[#fafafa] px-3 py-3">
+    <div className="grid gap-0 lg:grid-cols-[264px_minmax(0,1fr)] lg:items-stretch lg:gap-4">
+      <aside data-profile-sidebar className="relative rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-2)] px-3 py-3 lg:min-h-screen lg:rounded-none lg:border-r lg:border-y-0 lg:border-l-0 lg:border-t-0 lg:border-b-0">
         <button className="mt-0 flex items-center gap-2 rounded-xl px-2 py-2 text-sm text-[color:var(--text-muted)]" onClick={() => onNavigate("tasks")}>
           <ArrowLeft size={14} /> Back to app
         </button>
-        <div className="mt-3 grid gap-1">
+        <div className="mt-3 grid grid-cols-3 gap-2 lg:grid-cols-1 lg:gap-1">
           <SidebarButton active={sidebarTab === "profile"} icon={UserCircle2} label="Profile" onClick={() => setSidebarTab("profile")} />
-          <div className="relative">
-            <SidebarButton active={sidebarTab === "theme"} icon={SunMedium} label="Theme" onClick={() => { setSidebarTab("theme"); setOpenFlyout((current) => current === "theme" ? null : "theme"); }} />
+            <div className="relative">
+              <SidebarButton active={sidebarTab === "theme"} icon={SunMedium} label="Theme" onClick={() => { setSidebarTab("theme"); setOpenFlyout((current) => current === "theme" ? null : "theme"); }} />
             {openFlyout === "theme" ? (
-              <div data-profile-sidebar className="absolute left-[calc(100%+16px)] top-0 z-50 w-[210px] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl">
+              <div data-profile-sidebar className="absolute left-0 top-full z-50 mt-1 w-[min(210px,calc(100vw-2rem))] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl sm:left-[calc(100%+24px)] sm:top-0 sm:mt-0 sm:w-[210px]">
                 <div className="px-3 py-2 text-sm text-[color:var(--text-muted)]">Theme</div>
                 <SubMenuItem icon={SunMedium} label="Light" selected={currentTheme === "light"} onClick={() => { onThemeChange("light"); setOpenFlyout(null); }} />
                 <SubMenuItem icon={MoonStar} label="Dark" selected={currentTheme === "dark"} onClick={() => { onThemeChange("dark"); setOpenFlyout(null); }} />
@@ -1783,7 +1906,7 @@ function ProfileScreen({
           <div className="relative">
             <SidebarButton active={sidebarTab === "color"} icon={Palette} label="Color" onClick={() => { setSidebarTab("color"); setOpenFlyout((current) => current === "color" ? null : "color"); }} />
             {openFlyout === "color" ? (
-              <div data-profile-sidebar className="absolute left-[calc(100%+16px)] top-0 z-50 w-[210px] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl">
+              <div data-profile-sidebar className="absolute left-0 top-full z-50 mt-1 w-[min(210px,calc(100vw-2rem))] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-2xl sm:left-[calc(100%+24px)] sm:top-0 sm:mt-0 sm:w-[210px]">
                 <div className="px-3 py-2 text-sm text-[color:var(--text-muted)]">Color Mode</div>
                 {accentOptions.map((option) => (
                   <SubMenuItem key={option.value} label={option.label} swatch={option.value} selected={accent === option.value} onClick={() => { setAccent(option.value); setOpenFlyout(null); }} />
@@ -1807,7 +1930,7 @@ function ProfileScreen({
                     {profile.photo ? (
                       <img src={profile.photo} alt="Profile preview" className="h-11 w-11 rounded-full object-cover" />
                     ) : (
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-violet-500 text-white">{profile.name.slice(0, 1)}</div>
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[color:var(--primary)] text-white">{profile.name.slice(0, 1)}</div>
                     )}
                     <span className="absolute inset-0 rounded-full bg-black/0 transition group-hover:bg-black/10" />
                   </button>
@@ -1824,7 +1947,7 @@ function ProfileScreen({
                   <div className="flex items-center gap-2">
                     <Input
                       ref={emailInputRef}
-                      className="h-10 w-[250px] bg-[color:var(--surface-2)]"
+                      className="h-10 w-full bg-[color:var(--surface-2)] sm:w-[250px]"
                       value={profile.email}
                       onChange={(event) => setProfile({ ...profile, email: event.target.value })}
                       onKeyDown={(event) => {
@@ -1847,9 +1970,9 @@ function ProfileScreen({
                 )
               }
             />
-            <ProfileRow label="Full name" value={<Input className="h-10 max-w-[200px] bg-[color:var(--surface-2)]" value={profile.name} onChange={(event) => setProfile({ ...profile, name: event.target.value })} />} />
-            <ProfileRow label="Title" sub="Your job title or role" value={<Input className="h-10 max-w-[200px] bg-[color:var(--surface-2)]" value={profile.title} onChange={(event) => setProfile({ ...profile, title: event.target.value })} />} />
-            <ProfileRow label="Username" sub="One word, like a nickname or first name" value={<Input className="h-10 max-w-[200px] bg-[color:var(--surface-2)]" value={profile.username} onChange={(event) => setProfile({ ...profile, username: event.target.value })} />} />
+            <ProfileRow label="Full name" value={<Input className="h-10 w-full max-w-none bg-[color:var(--surface-2)] sm:max-w-[200px]" value={profile.name} onChange={(event) => setProfile({ ...profile, name: event.target.value })} />} />
+            <ProfileRow label="Title" sub="Your job title or role" value={<Input className="h-10 w-full max-w-none bg-[color:var(--surface-2)] sm:max-w-[200px]" value={profile.title} onChange={(event) => setProfile({ ...profile, title: event.target.value })} />} />
+            <ProfileRow label="Username" sub="One word, like a nickname or first name" value={<Input className="h-10 w-full max-w-none bg-[color:var(--surface-2)] sm:max-w-[200px]" value={profile.username} onChange={(event) => setProfile({ ...profile, username: event.target.value })} />} />
           </div>
         </Card>
 
@@ -1857,7 +1980,7 @@ function ProfileScreen({
 
         <div className="px-0 py-0">
           <h3 className="text-lg font-semibold">Workspace access</h3>
-                <div className="mt-4 flex items-center justify-between rounded-2xl border border-[color:var(--border)] p-4">
+                <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-[color:var(--border)] p-4 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-sm text-[color:var(--text-muted)]">Remove yourself from the workspace</span>
             <Button variant="danger" size="sm" className="rounded-full" onClick={onLogout}>Leave Workspace</Button>
                 </div>
