@@ -57,8 +57,16 @@ npm run start:dev
 
 Frontend:
 
+Local:
+
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:3001/api
+```
+
+Production:
+
+```bash
+NEXT_PUBLIC_API_URL=https://able-space-api.onrender.com/api
 ```
 
 Backend:
