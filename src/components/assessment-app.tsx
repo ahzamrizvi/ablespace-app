@@ -51,7 +51,7 @@ import { TaskFormModal } from "./task-form-modal";
 import { SubtaskFormModal, type SubtaskFormValue } from "./subtask-form-modal";
 import { DatePickerField } from "./date-picker-field";
 import { useTheme } from "next-themes";
-import { buildProfileFromUser, guestProfileDefaults, getProfileStorageKey } from "@/lib/profile-storage";
+import { buildProfileFromUser, guestProfileDefaults, getProfileStorageKey, getWorkspaceStateStorageKey } from "@/lib/profile-storage";
 import { fallbackDueDate } from "@/lib/utils";
 
 type View = "login" | "tasks" | "task-detail" | "projects" | "profile";
@@ -78,7 +78,32 @@ type ProfileState = {
   photo: string | null;
 };
 
+type WorkspaceState = {
+  view: View;
+  selectedTaskId: string | null;
+  selectedProjectId: string | null;
+};
+
 const accentKey = "able-space.accent";
+const validWorkspaceViews = new Set<View>(["tasks", "task-detail", "projects", "profile"]);
+
+function readWorkspaceState(currentUser: User | null): WorkspaceState | null {
+  if (typeof window === "undefined") return null;
+
+  const rawState = window.localStorage.getItem(getWorkspaceStateStorageKey(currentUser));
+  if (!rawState) return null;
+
+  try {
+    const parsed = JSON.parse(rawState) as Partial<WorkspaceState>;
+    return {
+      view: validWorkspaceViews.has(parsed.view as View) ? (parsed.view as View) : "tasks",
+      selectedTaskId: typeof parsed.selectedTaskId === "string" ? parsed.selectedTaskId : null,
+      selectedProjectId: typeof parsed.selectedProjectId === "string" ? parsed.selectedProjectId : null,
+    };
+  } catch {
+    return null;
+  }
+}
 
 const accentOptions: Array<{ value: Accent; label: string }> = [
   { value: "amber", label: "Amber" },
@@ -230,7 +255,10 @@ export function AssessmentApp() {
                 setProfile(buildProfileFromUser(response.user));
               }
             }
-            setView("tasks");
+            const workspaceState = readWorkspaceState(response.user);
+            setView(workspaceState?.view ?? "tasks");
+            setSelectedTaskId(workspaceState?.selectedTaskId ?? null);
+            setSelectedProjectId(workspaceState?.selectedProjectId ?? seedProjects[0]?.id ?? null);
             await loadTasks();
             return;
           }
@@ -254,7 +282,10 @@ export function AssessmentApp() {
               setProfile(buildProfileFromUser(currentUser));
             }
           }
-          setView("tasks");
+          const workspaceState = readWorkspaceState(currentUser);
+          setView(workspaceState?.view ?? "tasks");
+          setSelectedTaskId(workspaceState?.selectedTaskId ?? null);
+          setSelectedProjectId(workspaceState?.selectedProjectId ?? seedProjects[0]?.id ?? null);
           await loadTasks();
           return;
         }
@@ -274,7 +305,10 @@ export function AssessmentApp() {
             setProfile(baseProfile);
           }
         }
-        setView("tasks");
+        const workspaceState = readWorkspaceState(currentUser);
+        setView(workspaceState?.view ?? "tasks");
+        setSelectedTaskId(workspaceState?.selectedTaskId ?? null);
+        setSelectedProjectId(workspaceState?.selectedProjectId ?? seedProjects[0]?.id ?? null);
         void loadTasks();
       })
       .catch(() => {
@@ -299,6 +333,18 @@ export function AssessmentApp() {
 
     window.localStorage.setItem(getProfileStorageKey(user), JSON.stringify(profile));
   }, [profile, ready, user]);
+
+  useEffect(() => {
+    if (!ready || !user) return;
+
+    const workspaceState: WorkspaceState = {
+      view,
+      selectedTaskId,
+      selectedProjectId,
+    };
+
+    window.localStorage.setItem(getWorkspaceStateStorageKey(user), JSON.stringify(workspaceState));
+  }, [ready, selectedProjectId, selectedTaskId, user, view]);
 
   useEffect(() => {
     if (view !== "tasks") return;
@@ -352,10 +398,15 @@ export function AssessmentApp() {
   }
 
   function clearSession() {
+    if (user) {
+      window.localStorage.removeItem(getWorkspaceStateStorageKey(user));
+      window.localStorage.removeItem(getProfileStorageKey(user));
+    }
     setUser(null);
     setTasks([]);
     setView("login");
     setSelectedTaskId(null);
+    setSelectedProjectId(seedProjects[0]?.id ?? null);
     setTaskError(null);
     setOpenMenu(null);
     setOpenSubMenu(null);
@@ -1426,17 +1477,19 @@ function TaskDetailScreen({ task, onBack, onEdit }: { task: Task; onBack: () => 
     <div className="relative w-full text-[color:var(--text)]">
       <button className="sr-only" onClick={onBack}>Back to tasks</button>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <section>
-          <div className="flex flex-col gap-4 pr-2 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0"><h1 className="text-xl font-semibold tracking-tight">{task.title}</h1><p className="mt-1 max-w-xl text-xs leading-4 text-[color:var(--text-muted)]">{task.description || "Create clear and detailed API documentation to guide developers in using the inventory and sales metrics features effectively."}</p></div>
-            <div className="flex flex-wrap items-center justify-end gap-1">
-                <button className={`flex h-7 w-7 items-center justify-center rounded border hover:bg-[color:var(--surface-2)] ${locked ? "border-[color:var(--primary)] bg-[color:var(--primary)] text-white" : "border-[color:var(--border)]"}`} onClick={toggleLock} aria-label="Lock task"><Lock size={14} strokeWidth={2} /></button>
-                <button className="flex h-7 items-center gap-1 rounded border border-[color:var(--border)] px-2 text-[color:var(--info)] hover:bg-[color:var(--surface-2)]" onClick={toggleWatch} aria-label="Watch task"><Eye size={14} strokeWidth={2} /> <span className="text-xs">{watchCount}</span></button>
-                <button className="flex h-7 w-7 items-center justify-center rounded border border-[color:var(--border)] hover:bg-[color:var(--surface-2)]" onClick={() => { void shareTask(); }} aria-label="Share task"><Share2 size={14} strokeWidth={2} /></button>
-               <button className="flex h-7 w-7 items-center justify-center rounded border border-[color:var(--border)] hover:bg-[color:var(--surface-2)]" onClick={onEdit} aria-label="More task options"><MoreHorizontal size={15} strokeWidth={2.5} /></button>
-                <button className="flex h-7 w-7 items-center justify-center rounded bg-[color:var(--surface-2)] text-[color:var(--text-muted)] hover:bg-[color:var(--border)]" onClick={onBack} aria-label="Close task details"><PanelLeft size={14} strokeWidth={2} /></button>
+        <div className="lg:col-span-2">
+          <div className="relative flex w-full flex-col gap-4 pr-2 sm:min-h-11 sm:flex-row sm:items-start">
+            <div className="min-w-0 flex-1"><h1 className="text-xl font-semibold tracking-tight">{task.title}</h1><p className="mt-1 max-w-xl text-xs leading-4 text-[color:var(--text-muted)]">{task.description || "Create clear and detailed API documentation to guide developers in using the inventory and sales metrics features effectively."}</p></div>
+            <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap sm:ml-auto sm:gap-2">
+              <button className={`shrink-0 flex h-7 w-7 items-center justify-center rounded border hover:bg-[color:var(--surface-2)] ${locked ? "border-[color:var(--primary)] bg-[color:var(--primary)] text-white" : "border-[color:var(--border)]"}`} onClick={toggleLock} aria-label="Lock task"><Lock size={14} strokeWidth={2} /></button>
+              <button className="shrink-0 flex h-7 items-center gap-1 rounded border border-[color:var(--border)] px-2 text-[color:var(--info)] hover:bg-[color:var(--surface-2)]" onClick={toggleWatch} aria-label="Watch task"><Eye size={14} strokeWidth={2} /> <span className="text-xs">{watchCount}</span></button>
+              <button className="shrink-0 flex h-7 w-7 items-center justify-center rounded border border-[color:var(--border)] hover:bg-[color:var(--surface-2)]" onClick={() => { void shareTask(); }} aria-label="Share task"><Share2 size={14} strokeWidth={2} /></button>
+              <button className="shrink-0 flex h-7 w-7 items-center justify-center rounded border border-[color:var(--border)] hover:bg-[color:var(--surface-2)]" onClick={onEdit} aria-label="More task options"><MoreHorizontal size={15} strokeWidth={2.5} /></button>
+              <button className="shrink-0 flex h-7 w-7 items-center justify-center rounded bg-[color:var(--surface-2)] text-[color:var(--text-muted)] hover:bg-[color:var(--border)]" onClick={onBack} aria-label="Close task details"><PanelLeft size={14} strokeWidth={2} /></button>
             </div>
           </div>
+        </div>
+        <section className="w-full">
           <div className="mt-5 grid gap-3 text-xs">
             <DetailRow label="Properties" value={<span className="inline-flex items-center gap-2"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--surface-2)] text-[9px] text-[color:var(--text)]">A</span><span>Designer</span><Badge className="bg-[color:var(--surface-2)] text-[color:var(--text-muted)]"><CalendarDays size={10} /> 31 Jul</Badge></span>} />
             <DetailRow label="Labels" value={<span className="flex flex-wrap gap-1">{labels.map((label) => <Badge key={label} className="cursor-pointer bg-[color:var(--surface-2)] text-[color:var(--text-muted)]" onClick={() => setLabels((current) => current.filter((item) => item !== label))}><Tag size={11} /> {label}</Badge>)}</span>} />

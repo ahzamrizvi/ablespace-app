@@ -1,4 +1,5 @@
 export const profileKeyPrefix = "able-space.profile";
+export const workspaceStateKeyPrefix = "able-space.workspace";
 export const guestProfileDefaults = {
   name: "Guest User",
   email: "Guest account",
@@ -23,4 +24,8 @@ export function buildProfileFromUser(currentUser) {
 
 export function getProfileStorageKey(currentUser) {
   return `${profileKeyPrefix}.${currentUser?.id ?? "guest"}`;
+}
+
+export function getWorkspaceStateStorageKey(currentUser) {
+  return `${workspaceStateKeyPrefix}.${currentUser?.id ?? "guest"}`;
 }
