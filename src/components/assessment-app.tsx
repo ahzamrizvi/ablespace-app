@@ -185,7 +185,7 @@ export function AssessmentApp() {
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<ProjectItem | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(seedProjects[0]?.id ?? null);
-  const [accent, setAccent] = useState<Accent>("blue");
+  const [accent, setAccent] = useState<Accent>("black");
   const [profile, setProfile] = useState<ProfileState>(guestProfileDefaults);
   const [openMenu, setOpenMenu] = useState<"workspace" | "user" | null>(null);
   const [openSubMenu, setOpenSubMenu] = useState<"theme" | "color" | null>(null);
