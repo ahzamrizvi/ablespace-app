@@ -259,7 +259,7 @@ export function AssessmentApp() {
             setView(workspaceState?.view ?? "tasks");
             setSelectedTaskId(workspaceState?.selectedTaskId ?? null);
             setSelectedProjectId(workspaceState?.selectedProjectId ?? seedProjects[0]?.id ?? null);
-            await loadTasks();
+            void loadTasks();
             return;
           }
 
@@ -286,7 +286,7 @@ export function AssessmentApp() {
           setView(workspaceState?.view ?? "tasks");
           setSelectedTaskId(workspaceState?.selectedTaskId ?? null);
           setSelectedProjectId(workspaceState?.selectedProjectId ?? seedProjects[0]?.id ?? null);
-          await loadTasks();
+          void loadTasks();
           return;
         }
 
